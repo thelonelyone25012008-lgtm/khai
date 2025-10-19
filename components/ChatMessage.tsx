@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { ChatMessage, Part } from '../types';
-import { NovaIcon } from './Icons';
+import { NovaIcon, DocumentTextIcon } from './Icons';
 
 // This function parses a custom markdown dialect that also supports LaTeX via MathJax.
 // It works by temporarily replacing math and code blocks with unique placeholders,
@@ -111,7 +111,7 @@ const parseMarkdown = (text: string) => {
 };
 
 
-const ChatMessageContent: React.FC<{ part: Part, isStreaming?: boolean }> = ({ part, isStreaming }) => {
+const ChatMessageContent: React.FC<{ part: Part, isStreaming?: boolean, onViewPdf: (base64: string) => void }> = ({ part, isStreaming, onViewPdf }) => {
     const contentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -125,13 +125,46 @@ const ChatMessageContent: React.FC<{ part: Part, isStreaming?: boolean }> = ({ p
     }, [part.text, isStreaming]);
 
     if (part.inlineData) {
+        // If the part is an image, display it.
+        if (part.inlineData.mimeType.startsWith('image/')) {
+            return (
+                <img
+                    src={`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`}
+                    alt="Uploaded content"
+                    className="max-w-xs rounded-lg mt-2 shadow-md"
+                />
+            );
+        }
+        // If it's a PDF, make it clickable to open the viewer.
+        if (part.inlineData.mimeType === 'application/pdf') {
+            return (
+                 <button
+                    onClick={() => onViewPdf(part.inlineData.data)}
+                    className="flex items-center gap-3 bg-gray-100 dark:bg-gray-600 p-3 my-2 rounded-lg border border-gray-300 dark:border-gray-500 hover:bg-gray-200 dark:hover:bg-gray-500 cursor-pointer text-left w-full max-w-xs transition-colors"
+                >
+                    <DocumentTextIcon className="w-8 h-8 flex-shrink-0 text-gray-500 dark:text-gray-400" />
+                    <div>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                            Tệp PDF đính kèm
+                        </p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                            Nhấn để xem nội dung
+                        </p>
+                    </div>
+                </button>
+            );
+        }
+        // For other file types, show a generic placeholder.
         return (
-            <img
-                src={`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`}
-                alt="Uploaded content"
-                className="max-w-xs rounded-lg mt-2 shadow-md"
-            />
-        );
+            <div className="bg-gray-100 dark:bg-gray-600 p-3 my-2 rounded-lg border border-gray-300 dark:border-gray-500">
+                <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                    Tệp đính kèm
+                </p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">
+                    {part.inlineData.mimeType}
+                </p>
+            </div>
+        )
     }
     if (part.text) {
         return <div ref={contentRef} dangerouslySetInnerHTML={parseMarkdown(part.text)} />;
@@ -139,7 +172,10 @@ const ChatMessageContent: React.FC<{ part: Part, isStreaming?: boolean }> = ({ p
     return null;
 };
 
-const ChatMessageComponent: React.FC<{ message: ChatMessage }> = ({ message }) => {
+const ChatMessageComponent: React.FC<{ 
+    message: ChatMessage, 
+    onViewPdf: (base64: string) => void,
+}> = ({ message, onViewPdf }) => {
   const isUser = message.role === 'user';
   const bubbleClasses = isUser
     ? 'bg-blue-600 text-white self-end'
@@ -150,12 +186,12 @@ const ChatMessageComponent: React.FC<{ message: ChatMessage }> = ({ message }) =
     <div className={`flex ${containerClasses} mb-4`}>
         {!isUser && (
             <div className="flex-shrink-0 w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center mr-3">
-                <NovaIcon className="w-7 h-7 text-white" />
+                <NovaIcon className="w-8 h-8 text-white" />
             </div>
         )}
       <div className={`max-w-2xl p-4 rounded-2xl shadow font-sans ${bubbleClasses}`}>
         {message.parts.map((part, index) => (
-          <ChatMessageContent key={index} part={part} isStreaming={message.isStreaming} />
+          <ChatMessageContent key={index} part={part} isStreaming={message.isStreaming} onViewPdf={onViewPdf} />
         ))}
       </div>
     </div>

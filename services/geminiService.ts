@@ -5,7 +5,8 @@ if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable not set");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// LƯU Ý: Thực thể 'ai' toàn cục đã bị xóa. 
+// Một thực thể mới sẽ được tạo trong mỗi hàm để đảm bảo API key mới nhất được sử dụng.
 
 /**
  * Generates an image based on a textual prompt using the Imagen model.
@@ -13,6 +14,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
  * @returns A Base64 encoded string of the generated JPEG image.
  */
 export const generateImage = async (prompt: string): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     try {
         const response = await ai.models.generateImages({
             model: 'imagen-4.0-generate-001',
@@ -35,15 +37,145 @@ export const generateImage = async (prompt: string): Promise<string> => {
     }
 };
 
+/**
+ * Generates a video lecture based on a detailed prompt.
+ * @param prompt The detailed prompt describing the video content.
+ * @param onProgress Callback to report progress updates.
+ * @returns A Blob object containing the video data.
+ */
+/*
+export const generateVideoLecture = async (prompt: string, onProgress: (message: string) => void): Promise<Blob> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    try {
+        onProgress("✅ Yêu cầu đã được gửi. Bắt đầu quá trình tạo video...");
+        let operation = await ai.models.generateVideos({
+            model: 'veo-3.1-generate-preview',
+            prompt: prompt,
+            config: {
+                numberOfVideos: 1,
+                resolution: '720p',
+                aspectRatio: '16:9'
+            }
+        });
+
+        onProgress("⏳ Quá trình này có thể mất vài phút. Cảm ơn bạn đã kiên nhẫn...");
+        
+        // Poll for completion
+        while (!operation.done) {
+            await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+            operation = await ai.operations.getVideosOperation({ operation: operation });
+        }
+
+        onProgress("✅ Hoàn tất! Đang tải video của bạn...");
+
+        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+        if (!downloadLink) {
+            throw new Error("Không tìm thấy liên kết tải xuống video.");
+        }
+
+        // Fetch the video data
+        const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+        if (!videoResponse.ok) {
+            throw new Error(`Không thể tải video: ${videoResponse.statusText}`);
+        }
+        
+        return await videoResponse.blob();
+
+    } catch (error) {
+        // Xử lý lỗi API key cụ thể cho video
+        if (error instanceof Error && error.message.includes("Requested entity was not found")) {
+            throw new Error("API_KEY_INVALID");
+        }
+        console.error("Lỗi khi tạo video bài giảng:", error);
+        throw new Error("Không thể tạo video bài giảng.");
+    }
+};
+*/
+
+/**
+ * Generates a video from an image and a text prompt.
+ * @param prompt The text prompt describing the desired animation.
+ * @param image The image to animate, containing mimeType and base64 data.
+ * @param onProgress Callback to report progress updates.
+ * @returns A Blob object containing the video data.
+ */
+/*
+export const generateVideoFromImage = async (
+    prompt: string,
+    image: { mimeType: string, data: string },
+    onProgress: (message: string) => void
+): Promise<Blob> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    try {
+        onProgress("✅ Yêu cầu đã được gửi. Bắt đầu quá trình tạo video từ ảnh...");
+        let operation = await ai.models.generateVideos({
+            model: 'veo-3.1-generate-preview', // High-quality model
+            prompt: prompt,
+            image: {
+                imageBytes: image.data,
+                mimeType: image.mimeType,
+            },
+            config: {
+                numberOfVideos: 1,
+                resolution: '720p',
+                aspectRatio: '16:9'
+            }
+        });
+
+        onProgress("⏳ Quá trình này có thể mất vài phút. Cảm ơn bạn đã kiên nhẫn...");
+        
+        while (!operation.done) {
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            operation = await ai.operations.getVideosOperation({ operation: operation });
+        }
+
+        onProgress("✅ Hoàn tất! Đang tải video của bạn...");
+
+        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+        if (!downloadLink) {
+            throw new Error("Không tìm thấy liên kết tải xuống video.");
+        }
+
+        const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
+        if (!videoResponse.ok) {
+            throw new Error(`Không thể tải video: ${videoResponse.statusText}`);
+        }
+        
+        return await videoResponse.blob();
+
+    } catch (error) {
+        if (error instanceof Error && error.message.includes("Requested entity was not found")) {
+            throw new Error("API_KEY_INVALID");
+        }
+        console.error("Lỗi khi tạo video từ ảnh:", error);
+        throw new Error("Không thể tạo video từ ảnh.");
+    }
+};
+*/
+
+
 const getSystemInstruction = (stage: EducationalStage, difficulty: DifficultyLevel, learningMode: LearningMode | null): string => {
     const commonCapabilities = `
-**Khả năng Đặc biệt: Tạo Hình ảnh Minh họa**
-- Để giải thích các khái niệm phức tạp (ví dụ: hình học, biểu đồ, sơ đồ), bạn có khả năng yêu cầu tạo ra hình ảnh.
-- Để làm điều này, hãy thêm một thẻ đặc biệt vào câu trả lời của bạn với cú pháp: \`[GENERATE_IMAGE: "mô tả chi tiết và rõ ràng về hình ảnh cần tạo"]\`.
-- **Ví dụ:** "Để dễ hình dung hơn về định lý Pytago, thầy sẽ vẽ một tam giác vuông nhé. [GENERATE_IMAGE: "một hình tam giác vuông với các cạnh a, b, và cạnh huyền c"]"
-- Hệ thống sẽ tự động phát hiện thẻ này, tạo hình ảnh và hiển thị nó cho học sinh. Chỉ sử dụng chức năng này khi một hình ảnh thực sự giúp ích cho việc học.
+**Khả năng Tạo Hình ảnh Vượt trội (Supercharged Image Generation)**
+- Bạn có một khả năng cực kỳ mạnh mẽ: tạo ra hình ảnh để minh họa cho lời giải thích của mình, giúp cho các khái niệm phức tạp trở nên trực quan và dễ hiểu.
+- Để yêu cầu tạo ảnh, hãy sử dụng cú pháp đặc biệt: \`[GENERATE_IMAGE: "mô tả chi tiết và rõ ràng về hình ảnh cần tạo"]\`.
+- **Khi nào nên tạo ảnh?** Hãy chủ động tạo ảnh khi giải thích về:
+    - **Toán học:** Bảng biến thiên, đồ thị hàm số, hình học không gian, sơ đồ Venn...
+    - **Vật lý:** Sơ đồ lực, mạch điện, biểu đồ chuyển động...
+    - **Hóa học:** Cấu trúc phân tử, sơ đồ phản ứng...
+    - **Sinh học:** Sơ đồ tế bào, chu trình sinh học...
+    - Bất kỳ khái niệm nào mà hình ảnh có thể làm rõ hơn văn bản.
 
-**Định dạng:** Sử dụng markdown để dễ đọc và cú pháp LaTeX (MathJax) cho công thức toán học ($...$ cho inline, $$...$$ cho block).`;
+- **Bí quyết để tạo ảnh đẹp và chính xác:**
+    1.  **Cụ thể và Chi tiết:** Yêu cầu của bạn càng chi tiết, hình ảnh càng chính xác. Đừng chỉ yêu cầu "đồ thị", hãy yêu cầu "đồ thị của hàm số y = x^3 - 3x, làm nổi bật các điểm cực đại và cực tiểu".
+    2.  **Chỉ định Phong cách:** Nêu rõ phong cách bạn muốn, ví dụ: "sơ đồ rõ ràng như sách giáo khoa", "hình vẽ tay đơn giản", "biểu đồ cột chuyên nghiệp".
+    3.  **Bao gồm Văn bản (nếu cần):** Nếu hình ảnh cần có nhãn, công thức, hoặc chú thích, hãy ghi rõ chúng trong mô tả.
+
+- **Ví dụ về một yêu cầu TỐT và một yêu cầu TỆ:**
+    - **TỆ (Không đủ chi tiết):** \`[GENERATE_IMAGE: "bảng biến thiên cho f(x) = xlnx"]\`
+    - **TỐT (Chi tiết, rõ ràng):** \`[GENERATE_IMAGE: "Một bảng biến thiên (bảng xét dấu) sạch sẽ, rõ ràng cho hàm số f(x) = x * ln(x). Bảng cần có các hàng cho x, dấu của f'(x), và sự biến thiên của f(x). Ghi rõ các điểm cực trị, các giá trị tại đó, và các khoảng đồng biến/nghịch biến. Phong cách trình bày giống như trong sách giáo khoa toán lớp 12."]\`
+
+**Định dạng:** Luôn sử dụng markdown để dễ đọc và cú pháp LaTeX (MathJax) cho công thức toán học ($...$ cho inline, $$...$$ cho block).`;
 
     switch (learningMode) {
         case 'solve_socratic':
@@ -72,6 +204,10 @@ ${commonCapabilities}`;
 4. **Đáp án cuối cùng:** Nêu rõ đáp án cuối cùng của bài toán.
 ${commonCapabilities}`;
         
+        case 'get_answer':
+            return `Bạn là một AI chuyên giải bài tập. Nhiệm vụ của bạn là chỉ cung cấp đáp án cuối cùng cho câu hỏi hoặc bài toán mà người dùng đưa ra. KHÔNG giải thích, KHÔNG trình bày các bước giải, chỉ đưa ra kết quả cuối cùng một cách ngắn gọn và chính xác. Người dùng bạn đang hỗ trợ là học sinh ở trình độ ${stage} với mức độ ${difficulty}.
+${commonCapabilities}`;
+
         case 'review':
              return `Bạn là một gia sư AI thân thiện và am hiểu. Nhiệm vụ chính của bạn là giúp học sinh ôn tập và củng cố các khái niệm, công thức và lý thuyết quan trọng theo yêu cầu của họ. Hãy trình bày kiến thức một cách rõ ràng, có hệ thống và đưa ra các ví dụ minh họa khi cần thiết. Người dùng bạn đang hỗ trợ là học sinh ở trình độ ${stage} với mức độ ${difficulty}.
 ${commonCapabilities}`;
@@ -106,6 +242,7 @@ export const generateResponse = async (
     difficulty: DifficultyLevel,
     learningMode: LearningMode | null,
 ): Promise<GenerateContentResponse> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const systemInstruction = getSystemInstruction(stage, difficulty, learningMode);
     const contents = buildContents(allMessages);
 
@@ -126,6 +263,7 @@ export async function* generateResponseStream(
     difficulty: DifficultyLevel,
     learningMode: LearningMode | null,
 ): AsyncGenerator<string> {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const systemInstruction = getSystemInstruction(stage, difficulty, learningMode);
     const contents = buildContents(allMessages);
     
