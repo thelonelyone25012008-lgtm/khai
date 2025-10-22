@@ -1,4 +1,3 @@
-// @ts-check
 import React, { useState } from 'react';
 import { NovaIcon, BrandmarkIcon } from './Icons';
 import { loginUser, registerUser } from '../services/dbService';
@@ -16,25 +15,16 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onContinueAsGuest }) =
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const validateForm = (): string | null => {
-    if (username.trim().length < 3) {
-      return 'Tên người dùng phải có ít nhất 3 ký tự.';
-    }
-    if (password.length < 6) {
-      return 'Mật khẩu phải có ít nhất 6 ký tự.';
-    }
-    return null;
-  };
-
-  const handleAuth = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
+    if (username.trim().length < 3) {
+      setError('Tên người dùng phải có ít nhất 3 ký tự.');
       return;
     }
-    
+    if (password.length < 6) {
+        setError('Mật khẩu phải có ít nhất 6 ký tự.');
+        return;
+    }
     setError('');
     setIsLoading(true);
 
@@ -51,25 +41,15 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onContinueAsGuest }) =
             setIsLoading(false);
         }
     } catch (err) {
-        console.error('Authentication error:', err);
+        console.error(err);
         setError('Không thể kết nối với bộ nhớ cục bộ.');
         setIsLoading(false);
     }
   };
 
   const toggleAuthMode = () => {
-    setAuthMode(prev => (prev === 'LOGIN' ? 'REGISTER' : 'LOGIN'));
-    setError('');
-    setUsername('');
-    setPassword('');
-  };
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setter: React.Dispatch<React.SetStateAction<string>>
-  ) => {
-    setter(e.target.value);
-    if (error) setError('');
+      setAuthMode(prev => (prev === 'LOGIN' ? 'REGISTER' : 'LOGIN'));
+      setError('');
   };
 
   return (
@@ -83,16 +63,17 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onContinueAsGuest }) =
             <p className="text-lg text-gray-600 dark:text-gray-300 mt-8">Trợ lý học tập AI của bạn</p>
         </div>
 
-        <form onSubmit={handleAuth} className="w-full space-y-4" noValidate>
+        <form onSubmit={handleAuth} className="w-full space-y-4">
           <div>
             <label htmlFor="username" className="sr-only">Tên người dùng</label>
             <input
               id="username"
               type="text"
               value={username}
-              onChange={(e) => handleInputChange(e, setUsername)}
-              required
-              minLength={3}
+              onChange={(e) => {
+                setUsername(e.target.value);
+                if (error) setError('');
+              }}
               placeholder="Tên người dùng"
               className="w-full px-4 py-3 text-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-describedby="auth-error"
@@ -105,9 +86,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onContinueAsGuest }) =
               id="password"
               type="password"
               value={password}
-              onChange={(e) => handleInputChange(e, setPassword)}
-              required
-              minLength={6}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (error) setError('');
+              }}
               placeholder="Mật khẩu"
               className="w-full px-4 py-3 text-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               aria-describedby="auth-error"
@@ -127,6 +109,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onContinueAsGuest }) =
         <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
             {authMode === 'LOGIN' ? 'Chưa có tài khoản? ' : 'Đã có tài khoản? '}
             <button 
+                type="button"
                 onClick={toggleAuthMode}
                 className="font-semibold text-blue-600 dark:text-blue-400 hover:underline focus:outline-none bg-transparent border-none p-0 cursor-pointer"
             >
@@ -141,10 +124,11 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onContinueAsGuest }) =
         </div>
         
         <button
+          type="button"
           onClick={onContinueAsGuest}
           className="w-full px-4 py-3 font-semibold text-blue-600 dark:text-blue-400 bg-transparent rounded-lg hover:bg-blue-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors"
         >
-          Tiếp tục với tư cách khách
+          {'Tiếp tục với tư cách khách'}
         </button>
 
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-6">

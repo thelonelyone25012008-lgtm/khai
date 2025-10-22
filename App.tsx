@@ -1,10 +1,12 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ChatInput from './components/ChatInput';
 import ChatMessageComponent from './components/ChatMessage';
 import Header from './components/Header';
 import { NovaIcon, BrandmarkIcon } from './components/Icons';
-import { EducationalStage, DifficultyLevel, ChatMessage, UploadedFile, Part, Theme, LearningMode } from './types';
+import { EducationalStage, DifficultyLevel, ChatMessage, UploadedFile, Part, Theme, LearningMode, QuizResultItem } from './types';
 import { generateResponseStream, generateImage } from './services/geminiService';
+import { createPdfFromImages } from './services/pdfService';
 import CameraCapture from './components/CameraCapture';
 import PdfViewer from './components/PdfViewer';
 import AuthScreen from './components/AuthScreen';
@@ -22,6 +24,25 @@ const fileToBase64 = (file: File): Promise<string> => {
         reader.onerror = (error) => reject(error);
     });
 };
+
+const downloadFileFromBase64 = (base64Data: string, fileName: string, mimeType: string) => {
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], {type: mimeType});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
 
 const App: React.FC = () => {
   // --- STATE MANAGEMENT ---
@@ -169,33 +190,58 @@ const App: React.FC = () => {
   const processAndStreamResponse = useCallback(async (messageHistory: ChatMessage[]) => {
     setIsLoading(true);
     setError(null);
-    
+
     const modelMessageId = `model-msg-${Date.now()}`;
-    const newModelMessage: ChatMessage = { id: modelMessageId, role: 'model', parts: [{ text: '' }], isStreaming: true };
+    const newModelMessage: ChatMessage = { id: modelMessageId, role: 'model', parts: [{ text: '...' }], isStreaming: true };
     setMessages(prev => [...prev, newModelMessage]);
-    
+
     let fullResponseText = '';
 
     try {
         const stream = generateResponseStream(messageHistory, educationalStage, difficultyLevel, learningMode);
         for await (const chunk of stream) {
             fullResponseText += chunk;
-            setMessages(prev => prev.map(msg => msg.id === modelMessageId ? { ...msg, parts: [{ text: fullResponseText }] } : msg ));
         }
-        
+
+        // After stream is complete, process the full response
+        let finalMessage: ChatMessage;
+
+        try {
+            const parsedJson = JSON.parse(fullResponseText) as QuizResultItem[];
+            if (Array.isArray(parsedJson) && parsedJson.length > 0 && 'title' in parsedJson[0] && 'solution' in parsedJson[0]) {
+                finalMessage = {
+                    id: modelMessageId,
+                    role: 'model',
+                    quizResult: parsedJson,
+                    parts: [],
+                    isStreaming: false
+                };
+            } else {
+                throw new Error("JSON response does not match QuizResult schema.");
+            }
+        } catch (jsonError) {
+            // Not a valid JSON or not the expected format, treat as regular text
+            const imageGenRegex = /\[GENERATE_IMAGE:\s*"([^"]+)"\]/g;
+            const cleanedText = fullResponseText.replace(imageGenRegex, '').trim();
+
+            finalMessage = {
+                id: modelMessageId,
+                role: 'model',
+                parts: [{ text: cleanedText }],
+                isStreaming: false
+            };
+        }
+
+        setMessages(prev => prev.map(msg => msg.id === modelMessageId ? finalMessage : msg));
+
+        // Handle image generation separately
         const imageGenRegex = /\[GENERATE_IMAGE:\s*"([^"]+)"\]/g;
         const imagePrompts: string[] = [];
         let match;
-        while ((match = imageGenRegex.exec(fullResponseText)) !== null) imagePrompts.push(match[1]);
-        
-        const cleanedText = fullResponseText.replace(imageGenRegex, '').trim();
-        
-        if (cleanedText || imagePrompts.length > 0) {
-            setMessages(prev => prev.map(msg => msg.id === modelMessageId ? { ...msg, parts: [{ text: cleanedText }], isStreaming: false } : msg));
-        } else {
-            setMessages(prev => prev.filter(msg => msg.id !== modelMessageId));
+        while ((match = imageGenRegex.exec(fullResponseText)) !== null) {
+            imagePrompts.push(match[1]);
         }
-
+        
         for (const prompt of imagePrompts) {
             const placeholderId = `img-placeholder-${Date.now()}-${Math.random()}`;
             const placeholderMessage: ChatMessage = { role: 'model', parts: [{ text: `Đang tạo hình ảnh: "${prompt}"...` }], id: placeholderId };
@@ -210,19 +256,60 @@ const App: React.FC = () => {
                 setMessages(prev => prev.map(msg => msg.id === placeholderId ? errorResponse : msg));
             }
         }
+
     } catch (err) {
       const errorMessage = 'Đã xảy ra lỗi khi nhận phản hồi. Vui lòng kiểm tra lại API key và thử lại.';
       setError(errorMessage);
       console.error(err);
-      setMessages(prev => prev.map(msg => msg.id === modelMessageId ? { role: 'model', parts: [{ text: errorMessage }], isStreaming: false } : msg));
+      setMessages(prev => prev.map(msg => msg.id === modelMessageId ? { ...msg, role: 'model', parts: [{ text: errorMessage }], isStreaming: false } : msg));
     } finally {
       setIsLoading(false);
+      setMessages(prev => prev.map(msg => msg.id === modelMessageId ? { ...msg, isStreaming: false } : msg));
     }
   }, [educationalStage, difficultyLevel, learningMode]);
+
 
   const handleSendMessage = useCallback(async () => {
     const readyFiles = uploadedFiles.filter(f => f.progress === 100);
     if (isLoading || (!input.trim() && readyFiles.length === 0)) return;
+    
+    const imageFiles = readyFiles.filter(f => f.type.startsWith('image/'));
+    const otherFiles = readyFiles.filter(f => !f.type.startsWith('image/'));
+
+    // Special handler: If only images are uploaded, convert to PDF first.
+    if (imageFiles.length > 0 && otherFiles.length === 0) {
+        setIsLoading(true);
+        const thinkingId = `pdf-gen-${Date.now()}`;
+        setMessages(prev => [...prev, { id: thinkingId, role: 'model', parts: [{ text: 'Đang tổng hợp các hình ảnh thành tệp PDF...' }] }]);
+        setInput('');
+        setUploadedFiles([]);
+
+        try {
+            const pdfBase64 = await createPdfFromImages(imageFiles);
+            const confirmationMessage: ChatMessage = {
+                role: 'model',
+                parts: [
+                    { text: `Tôi đã tổng hợp ${imageFiles.length} hình ảnh thành một tệp PDF. Vui lòng xem lại.` },
+                    { inlineData: { mimeType: 'application/pdf', data: pdfBase64 } }
+                ],
+                specialActions: {
+                    type: 'pdfConfirmation',
+                    pdfBase64,
+                    originalUserInput: input,
+                    originalFiles: imageFiles,
+                },
+            };
+            setMessages(prev => prev.map(m => m.id === thinkingId ? confirmationMessage : m));
+        } catch (err) {
+            console.error("PDF generation failed:", err);
+            setError("Không thể tạo tệp PDF từ hình ảnh.");
+            setMessages(prev => prev.filter(m => m.id !== thinkingId));
+        } finally {
+            setIsLoading(false);
+        }
+        return; // Stop execution, wait for user confirmation
+    }
+
 
     const userParts: Part[] = [...readyFiles.flatMap(f => f.parts)];
     if (input.trim()) userParts.push({ text: input });
@@ -235,6 +322,27 @@ const App: React.FC = () => {
     
     await processAndStreamResponse(currentMessages);
   }, [input, uploadedFiles, messages, isLoading, processAndStreamResponse]);
+
+  const handlePdfDownload = useCallback((base64: string) => {
+    downloadFileFromBase64(base64, `NOVA_synthesis_${Date.now()}.pdf`, 'application/pdf');
+  }, []);
+
+  const handlePdfConfirmAndContinue = useCallback((payload: { pdfBase64: string; originalUserInput: string; }) => {
+      // Create a new user message that contains the confirmed PDF and original text prompt
+      const userParts: Part[] = [
+          { inlineData: { mimeType: 'application/pdf', data: payload.pdfBase64 } }
+      ];
+      if (payload.originalUserInput.trim()) {
+          userParts.push({ text: payload.originalUserInput });
+      }
+
+      const newUserMessage: ChatMessage = { role: 'user', parts: userParts };
+      const currentMessages = [...messages, newUserMessage];
+      setMessages(currentMessages);
+
+      // Now, call the AI with this new context
+      processAndStreamResponse(currentMessages);
+  }, [messages, processAndStreamResponse]);
 
   // --- EFFECTS ---
   
@@ -265,9 +373,13 @@ const App: React.FC = () => {
   // Save chat history when messages change for a logged-in user
   useEffect(() => {
       if (currentUser && messages.length > 0 && appState === 'CHAT' && !isLoading) {
-          saveChatHistory(currentUser, messages).catch(err => {
-              console.error("Failed to save chat history:", err);
-          });
+          // Don't save temporary PDF confirmation messages
+          const historyToSave = messages.filter(m => m.specialActions?.type !== 'pdfConfirmation');
+          if (historyToSave.length > 0) {
+            saveChatHistory(currentUser, historyToSave).catch(err => {
+                console.error("Failed to save chat history:", err);
+            });
+          }
       }
   }, [messages, currentUser, appState, isLoading]);
   
@@ -321,7 +433,14 @@ const App: React.FC = () => {
             </div>
             <div className="max-w-4xl mx-auto relative z-10">
                 {messages.map((msg, index) => (
-                    <ChatMessageComponent key={msg.id || index} message={msg} onViewPdf={setPdfToView} />
+                    <ChatMessageComponent 
+                        key={msg.id || index} 
+                        message={msg} 
+                        onViewPdf={setPdfToView}
+                        onPdfDownload={handlePdfDownload}
+                        onPdfConfirmAndContinue={handlePdfConfirmAndContinue}
+                        isLoading={isLoading}
+                    />
                 ))}
                 {isLoading && messages[messages.length - 1]?.role !== 'model' && <ModelThinkingIndicator />}
                 {error && <div className="text-red-500 text-center p-2">{error}</div>}

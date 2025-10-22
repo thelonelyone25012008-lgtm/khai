@@ -1,4 +1,5 @@
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+
+import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import { EducationalStage, DifficultyLevel, ChatMessage, UploadedFile, Part, LearningMode } from '../types';
 
 if (!process.env.API_KEY) {
@@ -156,6 +157,17 @@ export const generateVideoFromImage = async (
 
 const getSystemInstruction = (stage: EducationalStage, difficulty: DifficultyLevel, learningMode: LearningMode | null): string => {
     const commonCapabilities = `
+**Định dạng JSON cho Lời giải Trắc nghiệm:** Khi cung cấp lời giải cho một danh sách các bài tập (ví dụ: từ một tệp PDF hoặc hình ảnh chứa nhiều câu hỏi), bạn BẮT BUỘC phải trả lời bằng một mảng JSON hợp lệ. Mỗi đối tượng trong mảng phải tuân theo cấu trúc sau: \`{ "title": "...", "solution": "..." }\`.
+- \`title\`: Là tiêu đề của câu hỏi (ví dụ: "Câu 1", "Bài 2: Tính đạo hàm", v.v.).
+- \`solution\`: Là lời giải chi tiết cho câu hỏi đó. Sử dụng Markdown để định dạng và cú pháp MathJax (ví dụ: \`$...$\` hoặc \`$$...$$\`) cho tất cả các công thức toán học.
+
+**Phân tích Hình ảnh Nâng cao (Advanced Image Analysis)**
+- Khi người dùng tải lên một hình ảnh, hãy phân tích nó một cách cẩn thận và chi tiết. Hãy coi hình ảnh là nguồn thông tin chính.
+- **Trích xuất Văn bản (OCR):** Nếu hình ảnh chứa văn bản (chữ viết tay hoặc chữ in), hãy trích xuất văn bản đó với độ chính xác cao nhất có thể trước khi giải quyết vấn đề.
+- **Hiểu Sơ đồ/Biểu đồ:** Nếu hình ảnh là một sơ đồ, biểu đồ, đồ thị hoặc hình vẽ kỹ thuật, hãy giải thích ý nghĩa của nó và các thành phần trong đó.
+- **Giải toán từ ảnh:** Đối với các bài toán trong ảnh, hãy xác định rõ các yếu tố, dữ kiện và yêu cầu của bài toán trước khi bắt đầu giải.
+- Luôn kết hợp thông tin từ hình ảnh với câu hỏi của người dùng để đưa ra câu trả lời toàn diện và chính xác nhất.
+
 **Khả năng Tạo Hình ảnh Vượt trội (Supercharged Image Generation)**
 - Bạn có một khả năng cực kỳ mạnh mẽ: tạo ra hình ảnh để minh họa cho lời giải thích của mình, giúp cho các khái niệm phức tạp trở nên trực quan và dễ hiểu.
 - Để yêu cầu tạo ảnh, hãy sử dụng cú pháp đặc biệt: \`[GENERATE_IMAGE: "mô tả chi tiết và rõ ràng về hình ảnh cần tạo"]\`.
@@ -236,6 +248,25 @@ const buildContents = (allMessages: ChatMessage[]) => {
     }));
 };
 
+const quizSchema = {
+  type: Type.ARRAY,
+  items: {
+    type: Type.OBJECT,
+    properties: {
+      title: {
+        type: Type.STRING,
+        description: 'Tiêu đề hoặc tên của câu hỏi, ví dụ: "Câu 1" hoặc "Bài 2: Hình học".',
+      },
+      solution: {
+        type: Type.STRING,
+        description: 'Lời giải chi tiết cho câu hỏi, được định dạng bằng Markdown và MathJax.',
+      },
+    },
+    required: ['title', 'solution'],
+  },
+};
+
+
 export const generateResponse = async (
     allMessages: ChatMessage[],
     stage: EducationalStage,
@@ -247,7 +278,7 @@ export const generateResponse = async (
     const contents = buildContents(allMessages);
 
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.5-pro',
         contents,
         config: {
             systemInstruction
@@ -268,10 +299,12 @@ export async function* generateResponseStream(
     const contents = buildContents(allMessages);
     
     const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.5-pro',
         contents,
         config: {
-            systemInstruction
+            systemInstruction,
+            responseMimeType: 'application/json',
+            responseSchema: quizSchema,
         }
     });
 
