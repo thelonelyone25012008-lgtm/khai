@@ -10,7 +10,7 @@ export enum DifficultyLevel {
   Advanced = 'Nâng cao',
 }
 
-export type LearningMode = 'solve_socratic' | 'solve_direct' | 'get_answer' | 'review';
+export type LearningMode = 'solve_socratic' | 'solve_direct' | 'get_answer' | 'review' | 'generate_image' | 'deep_research';
 
 export type Theme = 'light' | 'dark' | 'system';
 
@@ -22,11 +22,28 @@ export interface Part {
   };
 }
 
+// Kiểu dữ liệu cho một mục trong kết quả trắc nghiệm/bài tập
+export interface QuizResultItem {
+  title: string;
+  solution: string;
+}
+
 export interface ChatMessage {
   id?: string; // Optional unique identifier for a message
   role: 'user' | 'model';
   parts: Part[];
   isStreaming?: boolean; // True if the message is actively being streamed
+  // New property for special message types like PDF confirmation
+  specialActions?: {
+    type: 'pdfConfirmation';
+    pdfBase64: string;
+    originalUserInput: string;
+    originalFiles: UploadedFile[];
+  };
+  // New property to hold structured quiz/exercise results
+  quizResult?: QuizResultItem[];
+  // New property to hold grounding sources from Google Search
+  sources?: { uri: string; title: string }[];
 }
 
 export interface UploadedFile {
@@ -48,5 +65,6 @@ declare global {
 
   interface Window {
     aistudio?: AIStudio;
+    jspdf: any; // Add jsPDF to the global window object for client-side PDF creation
   }
 }

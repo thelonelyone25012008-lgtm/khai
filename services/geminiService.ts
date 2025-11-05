@@ -1,4 +1,4 @@
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, Type, Modality } from "@google/genai";
 import { EducationalStage, DifficultyLevel, ChatMessage, UploadedFile, Part, LearningMode } from '../types';
 
 if (!process.env.API_KEY) {
@@ -9,13 +9,49 @@ if (!process.env.API_KEY) {
 // Một thực thể mới sẽ được tạo trong mỗi hàm để đảm bảo API key mới nhất được sử dụng.
 
 /**
- * Generates an image based on a textual prompt using the Imagen model.
- * @param prompt The text prompt describing the image to generate.
+ * Extracts a concise text prompt from uploaded files using a powerful multimodal model.
+ * @param parts An array of file Parts for the multimodal prompt.
+ * @returns A string containing the extracted or generated prompt.
+ */
+export const extractTextFromFile = async (parts: Part[]): Promise<string> => {
+    if (parts.length === 0) {
+        return "";
+    }
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const systemInstruction = `Your only job is to analyze the provided file(s) and extract or create a concise, effective prompt for an image generation AI.
+- If the file contains explicit text that is a prompt, extract that text exactly.
+- If the file is an image without a clear text prompt, generate a short, descriptive prompt based on the image's main content.
+- The output should be ONLY the prompt text, with no extra explanations, greetings, or conversational text.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-pro', // Use the powerful model for accurate OCR and analysis
+            contents: { parts },
+            config: {
+                systemInstruction,
+            },
+        });
+        return response.text.trim();
+    } catch (error) {
+        console.error("Error extracting text from file:", error);
+        throw new Error("Failed to analyze the uploaded file.");
+    }
+};
+
+
+/**
+ * Generates an image based on a textual prompt using the high-quality Imagen model.
+ * @param prompt A string containing the detailed image description.
  * @returns A Base64 encoded string of the generated JPEG image.
  */
 export const generateImage = async (prompt: string): Promise<string> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    if (!prompt || prompt.trim().length === 0) {
+        throw new Error("Image generation prompt cannot be empty.");
+    }
+    
     try {
+        console.log("Using Imagen for high-quality image generation with prompt:", prompt);
         const response = await ai.models.generateImages({
             model: 'imagen-4.0-generate-001',
             prompt: prompt,
@@ -29,13 +65,14 @@ export const generateImage = async (prompt: string): Promise<string> => {
         if (response.generatedImages && response.generatedImages.length > 0) {
             return response.generatedImages[0].image.imageBytes;
         } else {
-            throw new Error("Image generation failed, no images returned.");
+            throw new Error("Image generation failed, no images were returned by the model.");
         }
     } catch (error) {
         console.error("Error generating image with Imagen:", error);
         throw new Error("Failed to generate image.");
     }
 };
+
 
 /**
  * Generates a video lecture based on a detailed prompt.
@@ -156,6 +193,17 @@ export const generateVideoFromImage = async (
 
 const getSystemInstruction = (stage: EducationalStage, difficulty: DifficultyLevel, learningMode: LearningMode | null): string => {
     const commonCapabilities = `
+**Định dạng JSON cho Lời giải Trắc nghiệm:** Khi cung cấp lời giải cho một danh sách các bài tập (ví dụ: từ một tệp PDF hoặc hình ảnh chứa nhiều câu hỏi), bạn BẮT BUỘC phải trả lời bằng một mảng JSON hợp lệ. Mỗi đối tượng trong mảng phải tuân theo cấu trúc sau: \`{ "title": "...", "solution": "..." }\`.
+- \`title\`: Là tiêu đề của câu hỏi (ví dụ: "Câu 1", "Bài 2: Tính đạo hàm", v.v.).
+- \`solution\`: Là lời giải chi tiết cho câu hỏi đó. Sử dụng Markdown để định dạng và cú pháp MathJax (ví dụ: \`$...$\` hoặc \`$$...$$\`) cho tất cả các công thức toán học.
+
+**Phân tích Hình ảnh Nâng cao (Advanced Image Analysis)**
+- Khi người dùng tải lên một hình ảnh, hãy phân tích nó một cách cẩn thận và chi tiết. Hãy coi hình ảnh là nguồn thông tin chính.
+- **Trích xuất Văn bản (OCR):** Nếu hình ảnh chứa văn bản (chữ viết tay hoặc chữ in), hãy trích xuất văn bản đó với độ chính xác cao nhất có thể trước khi giải quyết vấn đề.
+- **Hiểu Sơ đồ/Biểu đồ:** Nếu hình ảnh là một sơ đồ, biểu đồ, đồ thị hoặc hình vẽ kỹ thuật, hãy giải thích ý nghĩa của nó và các thành phần trong đó.
+- **Giải toán từ ảnh:** Đối với các bài toán trong ảnh, hãy xác định rõ các yếu tố, dữ kiện và yêu cầu của bài toán trước khi bắt đầu giải.
+- Luôn kết hợp thông tin từ hình ảnh với câu hỏi của người dùng để đưa ra câu trả lời toàn diện và chính xác nhất.
+
 **Khả năng Tạo Hình ảnh Vượt trội (Supercharged Image Generation)**
 - Bạn có một khả năng cực kỳ mạnh mẽ: tạo ra hình ảnh để minh họa cho lời giải thích của mình, giúp cho các khái niệm phức tạp trở nên trực quan và dễ hiểu.
 - Để yêu cầu tạo ảnh, hãy sử dụng cú pháp đặc biệt: \`[GENERATE_IMAGE: "mô tả chi tiết và rõ ràng về hình ảnh cần tạo"]\`.
@@ -177,26 +225,25 @@ const getSystemInstruction = (stage: EducationalStage, difficulty: DifficultyLev
 
 **Định dạng:** Luôn sử dụng markdown để dễ đọc và cú pháp LaTeX (MathJax) cho công thức toán học ($...$ cho inline, $$...$$ cho block).`;
 
+    const modeMismatchWarning = (currentMode: string, suggestion: string) => `
+**QUAN TRỌNG:** Nếu người dùng yêu cầu bạn làm một việc không phù hợp với vai trò hiện tại (ví dụ: yêu cầu giải toán khi bạn đang ở chế độ tạo ảnh), bạn PHẢI lịch sự thông báo rằng họ đang ở chế độ '${currentMode}' và gợi ý họ chuyển sang chế độ '${suggestion}' để thực hiện yêu cầu đó. KHÔNG được thực hiện yêu cầu không liên quan.`;
+
     switch (learningMode) {
         case 'solve_socratic':
             return `Bạn là một gia sư AI theo phương pháp Socratic, kiên nhẫn và khuyến khích. Nhiệm vụ chính của bạn là hướng dẫn học sinh giải quyết các bài tập cụ thể. Nhiệm vụ của bạn là hướng dẫn học sinh tự tìm ra câu trả lời, chứ không phải cung cấp đáp án ngay lập tức. Người dùng bạn đang hỗ trợ là học sinh ở trình độ ${stage} với mức độ ${difficulty}.
-
+${modeMismatchWarning('Hướng dẫn (Socratic)', 'Giải chi tiết, Chỉ xem đáp án, hoặc Tạo hình ảnh')}
 Quy trình hướng dẫn của bạn như sau:
-
 1. **Hỏi về định hướng của người dùng:** Khi người dùng đưa ra một bài toán hoặc một câu hỏi, ĐẦU TIÊN, hãy hỏi họ xem họ có ý tưởng hoặc định hướng giải quyết như thế nào. Ví dụ: "Đây là một bài toán thú vị. Em đã có ý tưởng gì để bắt đầu chưa?" hoặc "Em định sẽ sử dụng công thức hay phương pháp nào để giải quyết vấn đề này?".
-
 2. **Phân tích định hướng:**
    - **Nếu hướng đi của người dùng là đúng hoặc có tiềm năng:** Hãy khuyến khích họ. Đừng giải bài toán hộ. Thay vào đó, hãy đặt những câu hỏi gợi mở để dẫn dắt họ qua từng bước. Ví dụ: "Hướng đi của em rất tốt! Bước tiếp theo em sẽ làm gì với thông tin đó?" hoặc "Đúng rồi, áp dụng định luật đó vào đây thì ta sẽ có gì nhỉ?". Giúp họ tự sửa những lỗi nhỏ nếu có.
    - **Nếu hướng đi của người dùng là sai hoặc không hiệu quả:** Hãy nhẹ nhàng giải thích tại sao hướng đi đó không phù hợp. Ví dụ: "Thầy hiểu tại sao em lại nghĩ theo hướng đó, nhưng trong trường hợp này nó có thể dẫn đến một kết quả không chính xác vì...". Sau đó, hãy gợi ý một hướng đi đúng đắn hơn và tiếp tục dẫn dắt họ bằng câu hỏi. Ví dụ: "Thay vào đó, chúng ta thử xem xét... nhé? Em nghĩ sao nếu ta bắt đầu bằng việc xác định các lực tác dụng lên vật?".
-
 3. **Thích ứng với trình độ:** Luôn điều chỉnh ngôn ngữ, ví dụ và độ phức tạp của câu hỏi cho phù hợp với trình độ ${stage} và mức độ ${difficulty} đã chọn.
-
 4. **Mục tiêu cuối cùng:** Giúp người dùng tự mình đi đến đáp án cuối cùng. Chỉ cung cấp lời giải chi tiết khi người dùng đã cố gắng nhưng vẫn không thể giải được và yêu cầu bạn giải chi tiết.
 ${commonCapabilities}`;
 
         case 'solve_direct':
             return `Bạn là một gia sư AI chuyên nghiệp và thân thiện. Nhiệm vụ của bạn là cung cấp lời giải chi tiết, chính xác và dễ hiểu cho các bài tập của học sinh. Người dùng bạn đang hỗ trợ là học sinh ở trình độ ${stage} với mức độ ${difficulty}.
-
+${modeMismatchWarning('Giải chi tiết', 'Hướng dẫn (Socratic), Chỉ xem đáp án, hoặc Tạo hình ảnh')}
 **Quy trình giải bài:**
 1. **Phân tích kỹ đề bài:** Đọc và hiểu rõ yêu cầu của bài toán.
 2. **Trình bày lời giải từng bước:** Cung cấp lời giải theo từng bước logic, dễ theo dõi.
@@ -206,10 +253,21 @@ ${commonCapabilities}`;
         
         case 'get_answer':
             return `Bạn là một AI chuyên giải bài tập. Nhiệm vụ của bạn là chỉ cung cấp đáp án cuối cùng cho câu hỏi hoặc bài toán mà người dùng đưa ra. KHÔNG giải thích, KHÔNG trình bày các bước giải, chỉ đưa ra kết quả cuối cùng một cách ngắn gọn và chính xác. Người dùng bạn đang hỗ trợ là học sinh ở trình độ ${stage} với mức độ ${difficulty}.
+${modeMismatchWarning('Chỉ xem đáp án', 'Giải chi tiết, Hướng dẫn (Socratic), hoặc Tạo hình ảnh')}
 ${commonCapabilities}`;
 
         case 'review':
              return `Bạn là một gia sư AI thân thiện và am hiểu. Nhiệm vụ chính của bạn là giúp học sinh ôn tập và củng cố các khái niệm, công thức và lý thuyết quan trọng theo yêu cầu của họ. Hãy trình bày kiến thức một cách rõ ràng, có hệ thống và đưa ra các ví dụ minh họa khi cần thiết. Người dùng bạn đang hỗ trợ là học sinh ở trình độ ${stage} với mức độ ${difficulty}.
+${modeMismatchWarning('Ôn kiến thức', 'Giải chi tiết, Hướng dẫn (Socratic), hoặc Tạo hình ảnh')}
+${commonCapabilities}`;
+        
+        case 'generate_image':
+             return `**Nhiệm vụ chính:** Bạn là một AI chuyên tạo hình ảnh. 
+${modeMismatchWarning('Tạo hình ảnh', 'bất kỳ chế độ giải bài tập hoặc ôn tập nào khác')}
+**QUAN TRỌNG:** Nếu người dùng yêu cầu bất cứ điều gì khác ngoài việc tạo hình ảnh (ví dụ: giải toán, trả lời câu hỏi, ôn tập kiến thức), bạn PHẢI lịch sự thông báo rằng họ đang ở chế độ 'Tạo hình ảnh' và cần chuyển chế độ để thực hiện yêu cầu đó. KHÔNG trả lời câu hỏi của họ hoặc thực hiện yêu cầu không liên quan. Chỉ tập trung vào việc tạo ra hình ảnh dựa trên mô tả.`;
+        
+        case 'deep_research':
+            return `Bạn là một trợ lý nghiên cứu AI. Nhiệm vụ của bạn là cung cấp các câu trả lời toàn diện, sâu sắc và có cấu trúc tốt dựa trên thông tin đã được xác minh từ web bằng cách sử dụng công cụ Google Search. Hãy sử dụng khả năng lý luận nâng cao và trích dẫn các nguồn từ kết quả tìm kiếm khi có thể. Câu trả lời của bạn phải chi tiết và đáng tin cậy.
 ${commonCapabilities}`;
 
         default:
@@ -236,6 +294,25 @@ const buildContents = (allMessages: ChatMessage[]) => {
     }));
 };
 
+const quizSchema = {
+  type: Type.ARRAY,
+  items: {
+    type: Type.OBJECT,
+    properties: {
+      title: {
+        type: Type.STRING,
+        description: 'Tiêu đề hoặc tên của câu hỏi, ví dụ: "Câu 1" hoặc "Bài 2: Hình học".',
+      },
+      solution: {
+        type: Type.STRING,
+        description: 'Lời giải chi tiết cho câu hỏi, được định dạng bằng Markdown và MathJax.',
+      },
+    },
+    required: ['title', 'solution'],
+  },
+};
+
+
 export const generateResponse = async (
     allMessages: ChatMessage[],
     stage: EducationalStage,
@@ -246,36 +323,46 @@ export const generateResponse = async (
     const systemInstruction = getSystemInstruction(stage, difficulty, learningMode);
     const contents = buildContents(allMessages);
 
+    const config: any = {
+        systemInstruction
+    };
+
+    if (learningMode === 'deep_research') {
+        config.tools = [{ googleSearch: {} }];
+        config.thinkingConfig = { thinkingBudget: 32768 }; // Max budget for Gemini 2.5 Pro
+    }
+
     const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-2.5-pro',
         contents,
-        config: {
-            systemInstruction
-        }
+        config
     });
 
     return response;
 };
 
-export async function* generateResponseStream(
+export const getResponseStream = async (
     allMessages: ChatMessage[],
     stage: EducationalStage,
     difficulty: DifficultyLevel,
     learningMode: LearningMode | null,
-): AsyncGenerator<string> {
+) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const systemInstruction = getSystemInstruction(stage, difficulty, learningMode);
     const contents = buildContents(allMessages);
     
-    const responseStream = await ai.models.generateContentStream({
-        model: 'gemini-2.5-flash',
-        contents,
-        config: {
-            systemInstruction
-        }
-    });
+    const config: any = {
+        systemInstruction,
+    };
 
-    for await (const chunk of responseStream) {
-        yield chunk.text;
+    if (learningMode === 'deep_research') {
+        config.tools = [{ googleSearch: {} }];
+        config.thinkingConfig = { thinkingBudget: 32768 }; // Max budget for Gemini 2.5 Pro
     }
-}
+
+    return ai.models.generateContentStream({
+        model: 'gemini-2.5-pro',
+        contents,
+        config
+    });
+};

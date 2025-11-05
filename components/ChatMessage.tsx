@@ -1,6 +1,8 @@
+
 import React, { useRef, useEffect } from 'react';
-import { ChatMessage, Part } from '../types';
+import { ChatMessage, Part, UploadedFile } from '../types';
 import { NovaIcon, DocumentTextIcon } from './Icons';
+import QuizResult from './QuizResult'; // Import the new component
 
 // This function parses a custom markdown dialect that also supports LaTeX via MathJax.
 // It works by temporarily replacing math and code blocks with unique placeholders,
@@ -94,7 +96,7 @@ const parseMarkdown = (text: string) => {
             replacementContent = `<pre class="bg-gray-200 dark:bg-gray-800 rounded-md p-3 my-2 overflow-x-auto"><code>${code}</code></pre>`;
         } else if (value.startsWith('`')) {
             const code = value.slice(1, -1);
-            replacementContent = `<code class="bg-gray-200 dark:bg-gray-800 rounded px-1 py-0.5 text-red-500">${code}</code>`;
+            replacementContent = `<code class="bg-gray-200 dark:bg-gray-800 rounded px-1 py-0.5 text-blue-600 dark:text-blue-400 font-medium">${code}</code>`;
         } else {
             // This is a MathJax block. Restore it as-is.
             replacementContent = value;
@@ -166,21 +168,57 @@ const ChatMessageContent: React.FC<{ part: Part, isStreaming?: boolean, onViewPd
             </div>
         )
     }
+    if (part.text === '...') { // Show a thinking indicator for the placeholder
+        return <div className="flex items-center space-x-2"><span className="w-2.5 h-2.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" style={{ animationDelay: '0s' }}></span><span className="w-2.5 h-2.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></span><span className="w-2.5 h-2.5 bg-gray-400 dark:bg-gray-500 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></span></div>;
+    }
     if (part.text) {
         return <div ref={contentRef} dangerouslySetInnerHTML={parseMarkdown(part.text)} />;
     }
     return null;
 };
 
-const ChatMessageComponent: React.FC<{ 
-    message: ChatMessage, 
-    onViewPdf: (base64: string) => void,
-}> = ({ message, onViewPdf }) => {
+interface ChatMessageComponentProps {
+  message: ChatMessage;
+  onViewPdf: (base64: string) => void;
+  onPdfDownload?: (base64: string) => void;
+  onPdfConfirmAndContinue?: (payload: {
+    pdfBase64: string;
+    originalUserInput: string;
+    originalFiles: UploadedFile[];
+  }) => void;
+  isLoading: boolean;
+}
+
+const ChatMessageComponent: React.FC<ChatMessageComponentProps> = ({ 
+    message, 
+    onViewPdf,
+    onPdfDownload,
+    onPdfConfirmAndContinue,
+    isLoading
+}) => {
   const isUser = message.role === 'user';
+  const containerClasses = isUser ? 'justify-end' : 'justify-start';
+
+  // Render QuizResult component if the message contains quiz data
+  if (message.quizResult) {
+    return (
+      <div className={`flex ${containerClasses} mb-4`}>
+        {!isUser && (
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center mr-3">
+            <NovaIcon className="w-8 h-8 text-white" />
+          </div>
+        )}
+        <div className="max-w-2xl w-full">
+          <QuizResult items={message.quizResult} />
+        </div>
+      </div>
+    );
+  }
+
   const bubbleClasses = isUser
     ? 'bg-blue-600 text-white self-end'
     : 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 self-start';
-  const containerClasses = isUser ? 'justify-end' : 'justify-start';
+  const isPdfConfirmation = message.specialActions?.type === 'pdfConfirmation';
 
   return (
     <div className={`flex ${containerClasses} mb-4`}>
@@ -193,6 +231,45 @@ const ChatMessageComponent: React.FC<{
         {message.parts.map((part, index) => (
           <ChatMessageContent key={index} part={part} isStreaming={message.isStreaming} onViewPdf={onViewPdf} />
         ))}
+        {message.sources && message.sources.length > 0 && !message.isStreaming && (
+            <div className="mt-4 pt-3 border-t border-gray-200/20">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-400/80 mb-2">Nguồn</h4>
+                <ul className="space-y-1 text-sm">
+                    {message.sources.map((source, index) => (
+                        <li key={index} className="flex items-start">
+                           <span className="mr-2 text-gray-400/80">&#8226;</span>
+                           <a 
+                                href={source.uri} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-blue-400 hover:underline break-all"
+                                title={source.title}
+                            >
+                                {source.title || source.uri}
+                            </a>
+                        </li>
+                    ))}
+                </ul>
+            </div>
+        )}
+        {isPdfConfirmation && message.specialActions && onPdfDownload && onPdfConfirmAndContinue && (
+          <div className="mt-4 pt-4 border-t border-gray-200/20 flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={() => onPdfDownload(message.specialActions.pdfBase64)}
+              disabled={isLoading}
+              className="px-4 py-2 text-sm font-semibold bg-gray-500/50 hover:bg-gray-500/80 text-white rounded-lg transition-colors w-full sm:w-auto disabled:opacity-50"
+            >
+              Tải xuống
+            </button>
+            <button
+              onClick={() => onPdfConfirmAndContinue(message.specialActions)}
+              disabled={isLoading}
+              className="px-4 py-2 text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-lg transition-colors w-full sm:w-auto disabled:opacity-50"
+            >
+              Chấp nhận & Tiếp tục
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { PaperClipIcon, SendIcon, XCircleIcon, CameraIcon, DocumentTextIcon } from './Icons';
 import Spinner from './Spinner';
-import { UploadedFile } from '../types';
+import { UploadedFile, LearningMode } from '../types';
 
 interface ChatInputProps {
   input: string;
@@ -13,6 +13,7 @@ interface ChatInputProps {
   uploadedFiles: UploadedFile[];
   onClearAllFiles: () => void;
   onRemoveFile: (index: number) => void;
+  learningMode: LearningMode | null;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
@@ -25,13 +26,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
   uploadedFiles,
   onClearAllFiles,
   onRemoveFile,
+  learningMode,
 }) => {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
   const isSendDisabled = 
     isLoading || 
-    (!input.trim() && uploadedFiles.length === 0);
+    (!input.trim() && uploadedFiles.filter(f => f.progress === 100).length === 0);
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -42,12 +44,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
-  // Auto-resize textarea height based on content
   useEffect(() => {
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'; // Reset height
+      textareaRef.current.style.height = 'auto';
       const scrollHeight = textareaRef.current.scrollHeight;
-      const maxHeight = 200; // Corresponds to max-h-52
+      const maxHeight = 200; 
       textareaRef.current.style.height = `${Math.min(scrollHeight, maxHeight)}px`;
     }
   }, [input]);
@@ -63,11 +64,13 @@ const ChatInput: React.FC<ChatInputProps> = ({
       primaryText: 'text-white',
   };
 
+  const allowFileUploads = true; // Luôn cho phép tải tệp lên.
+
   return (
     <div className={`${themeColors.card} backdrop-blur-sm p-4 border-t ${themeColors.border}`}>
       <div className="max-w-4xl mx-auto">
         <div className={`w-full flex flex-col ${themeColors.cardSecondary} rounded-2xl shadow-sm border ${themeColors.border}`}>
-          {uploadedFiles.length > 0 && (
+          {allowFileUploads && uploadedFiles.length > 0 && (
               <div className={`p-3 border-b ${themeColors.border} space-y-3`}>
                   <div className="flex items-center justify-between">
                       <span className={`text-sm font-medium ${themeColors.textPrimary}`}>Tệp đính kèm</span>
@@ -109,7 +112,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
                                   {file.progress === -1 && (
                                     <div className="absolute inset-0 bg-red-500/70 flex items-center justify-center text-white" title="Lỗi xử lý tệp">
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24" stroke="currentColor" strokeWidth="2">
                                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                         </svg>
                                     </div>
@@ -140,30 +143,32 @@ const ChatInput: React.FC<ChatInputProps> = ({
                   accept="image/*,application/pdf,.txt,.md,.csv"
                   multiple
               />
-              <div className="flex items-center pt-2 space-x-1">
-                  <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isLoading}
-                      className={`p-2 ${themeColors.textSecondary} hover:text-blue-600 disabled:opacity-50`}
-                      aria-label="Đính kèm tệp"
-                  >
-                      <PaperClipIcon className="w-6 h-6" />
-                  </button>
-                  <button
-                      onClick={onOpenCamera}
-                      disabled={isLoading}
-                      className={`p-2 ${themeColors.textSecondary} hover:text-blue-600 disabled:opacity-50`}
-                      aria-label="Chụp ảnh"
-                  >
-                      <CameraIcon className="w-6 h-6" />
-                  </button>
-              </div>
+              {allowFileUploads && (
+                <div className="flex items-center pt-2 space-x-1">
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isLoading}
+                        className={`p-2 ${themeColors.textSecondary} hover:text-blue-600 disabled:opacity-50`}
+                        aria-label="Đính kèm tệp"
+                    >
+                        <PaperClipIcon className="w-6 h-6" />
+                    </button>
+                    <button
+                        onClick={onOpenCamera}
+                        disabled={isLoading}
+                        className={`p-2 ${themeColors.textSecondary} hover:text-blue-600 disabled:opacity-50`}
+                        aria-label="Chụp ảnh"
+                    >
+                        <CameraIcon className="w-6 h-6" />
+                    </button>
+                </div>
+              )}
               <textarea
                   ref={textareaRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Nhập câu hỏi hoặc mô tả tệp của bạn..."
+                  placeholder={learningMode === 'generate_image' ? "Mô tả ảnh, hoặc tải tệp lên để AI trích xuất yêu cầu..." : "Nhập câu hỏi hoặc mô tả tệp của bạn..."}
                   className={`flex-1 bg-transparent border-none focus:ring-0 resize-none outline-none ${themeColors.textPrimary} placeholder-${themeColors.textSecondary} py-2.5 min-h-[44px] max-h-52`}
                   rows={1}
                   disabled={isLoading}
