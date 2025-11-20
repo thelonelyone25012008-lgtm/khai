@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import ChatInput from './components/ChatInput';
 import ChatMessageComponent from './components/ChatMessage';
@@ -223,23 +224,19 @@ const App: React.FC = () => {
 
     try {
         const streamResult = await getResponseStream(messageHistory, educationalStage, difficultyLevel, learningMode);
-        const finalResponsePromise = streamResult.response;
-        
-        const streamProcessing = (async () => {
-            for await (const chunk of streamResult) {
-                const chunkText = chunk.text;
-                if (chunkText) {
-                    fullResponseText += chunkText;
-                    currentStreamedText += chunkText;
-                    setMessages(prev => prev.map(msg => 
-                        msg.id === modelMessageId ? { ...msg, parts: [{ text: currentStreamedText }] } : msg
-                    ));
-                }
-            }
-        })();
+        let finalResponse: any = null;
 
-        await streamProcessing;
-        const finalResponse = await finalResponsePromise;
+        for await (const chunk of streamResult) {
+            const chunkText = chunk.text;
+            if (chunkText) {
+                fullResponseText += chunkText;
+                currentStreamedText += chunkText;
+                setMessages(prev => prev.map(msg => 
+                    msg.id === modelMessageId ? { ...msg, parts: [{ text: currentStreamedText }] } : msg
+                ));
+            }
+            finalResponse = chunk;
+        }
 
         // FIX: Add a guard clause to handle cases where the final aggregated response is not available.
         if (!finalResponse) {

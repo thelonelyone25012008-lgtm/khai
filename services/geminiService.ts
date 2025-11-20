@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, GenerateContentResponse, Type, Modality } from "@google/genai";
 import { EducationalStage, DifficultyLevel, ChatMessage, UploadedFile, Part, LearningMode } from '../types';
 
@@ -5,13 +6,8 @@ if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable not set");
 }
 
-// LƯU Ý: Thực thể 'ai' toàn cục đã bị xóa. 
-// Một thực thể mới sẽ được tạo trong mỗi hàm để đảm bảo API key mới nhất được sử dụng.
-
 /**
  * Extracts a concise text prompt from uploaded files using a powerful multimodal model.
- * @param parts An array of file Parts for the multimodal prompt.
- * @returns A string containing the extracted or generated prompt.
  */
 export const extractTextFromFile = async (parts: Part[]): Promise<string> => {
     if (parts.length === 0) {
@@ -21,15 +17,13 @@ export const extractTextFromFile = async (parts: Part[]): Promise<string> => {
     const systemInstruction = `Your only job is to analyze the provided file(s) and extract or create a concise, effective prompt for an image generation AI.
 - If the file contains explicit text that is a prompt, extract that text exactly.
 - If the file is an image without a clear text prompt, generate a short, descriptive prompt based on the image's main content.
-- The output should be ONLY the prompt text, with no extra explanations, greetings, or conversational text.`;
+- The output should be ONLY the prompt text, with no extra explanations.`;
 
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro', // Use the powerful model for accurate OCR and analysis
+            model: 'gemini-2.5-pro',
             contents: { parts },
-            config: {
-                systemInstruction,
-            },
+            config: { systemInstruction },
         });
         return response.text.trim();
     } catch (error) {
@@ -38,11 +32,8 @@ export const extractTextFromFile = async (parts: Part[]): Promise<string> => {
     }
 };
 
-
 /**
  * Generates an image based on a textual prompt using the high-quality Imagen model.
- * @param prompt A string containing the detailed image description.
- * @returns A Base64 encoded string of the generated JPEG image.
  */
 export const generateImage = async (prompt: string): Promise<string> => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -51,7 +42,6 @@ export const generateImage = async (prompt: string): Promise<string> => {
     }
     
     try {
-        console.log("Using Imagen for high-quality image generation with prompt:", prompt);
         const response = await ai.models.generateImages({
             model: 'imagen-4.0-generate-001',
             prompt: prompt,
@@ -65,7 +55,7 @@ export const generateImage = async (prompt: string): Promise<string> => {
         if (response.generatedImages && response.generatedImages.length > 0) {
             return response.generatedImages[0].image.imageBytes;
         } else {
-            throw new Error("Image generation failed, no images were returned by the model.");
+            throw new Error("Image generation failed, no images were returned.");
         }
     } catch (error) {
         console.error("Error generating image with Imagen:", error);
@@ -73,296 +63,125 @@ export const generateImage = async (prompt: string): Promise<string> => {
     }
 };
 
-
-/**
- * Generates a video lecture based on a detailed prompt.
- * @param prompt The detailed prompt describing the video content.
- * @param onProgress Callback to report progress updates.
- * @returns A Blob object containing the video data.
- */
-/*
-export const generateVideoLecture = async (prompt: string, onProgress: (message: string) => void): Promise<Blob> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    try {
-        onProgress("✅ Yêu cầu đã được gửi. Bắt đầu quá trình tạo video...");
-        let operation = await ai.models.generateVideos({
-            model: 'veo-3.1-generate-preview',
-            prompt: prompt,
-            config: {
-                numberOfVideos: 1,
-                resolution: '720p',
-                aspectRatio: '16:9'
-            }
-        });
-
-        onProgress("⏳ Quá trình này có thể mất vài phút. Cảm ơn bạn đã kiên nhẫn...");
-        
-        // Poll for completion
-        while (!operation.done) {
-            await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
-            operation = await ai.operations.getVideosOperation({ operation: operation });
-        }
-
-        onProgress("✅ Hoàn tất! Đang tải video của bạn...");
-
-        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-        if (!downloadLink) {
-            throw new Error("Không tìm thấy liên kết tải xuống video.");
-        }
-
-        // Fetch the video data
-        const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-        if (!videoResponse.ok) {
-            throw new Error(`Không thể tải video: ${videoResponse.statusText}`);
-        }
-        
-        return await videoResponse.blob();
-
-    } catch (error) {
-        // Xử lý lỗi API key cụ thể cho video
-        if (error instanceof Error && error.message.includes("Requested entity was not found")) {
-            throw new Error("API_KEY_INVALID");
-        }
-        console.error("Lỗi khi tạo video bài giảng:", error);
-        throw new Error("Không thể tạo video bài giảng.");
-    }
-};
-*/
-
-/**
- * Generates a video from an image and a text prompt.
- * @param prompt The text prompt describing the desired animation.
- * @param image The image to animate, containing mimeType and base64 data.
- * @param onProgress Callback to report progress updates.
- * @returns A Blob object containing the video data.
- */
-/*
-export const generateVideoFromImage = async (
-    prompt: string,
-    image: { mimeType: string, data: string },
-    onProgress: (message: string) => void
-): Promise<Blob> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    try {
-        onProgress("✅ Yêu cầu đã được gửi. Bắt đầu quá trình tạo video từ ảnh...");
-        let operation = await ai.models.generateVideos({
-            model: 'veo-3.1-generate-preview', // High-quality model
-            prompt: prompt,
-            image: {
-                imageBytes: image.data,
-                mimeType: image.mimeType,
-            },
-            config: {
-                numberOfVideos: 1,
-                resolution: '720p',
-                aspectRatio: '16:9'
-            }
-        });
-
-        onProgress("⏳ Quá trình này có thể mất vài phút. Cảm ơn bạn đã kiên nhẫn...");
-        
-        while (!operation.done) {
-            await new Promise(resolve => setTimeout(resolve, 10000));
-            operation = await ai.operations.getVideosOperation({ operation: operation });
-        }
-
-        onProgress("✅ Hoàn tất! Đang tải video của bạn...");
-
-        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
-        if (!downloadLink) {
-            throw new Error("Không tìm thấy liên kết tải xuống video.");
-        }
-
-        const videoResponse = await fetch(`${downloadLink}&key=${process.env.API_KEY}`);
-        if (!videoResponse.ok) {
-            throw new Error(`Không thể tải video: ${videoResponse.statusText}`);
-        }
-        
-        return await videoResponse.blob();
-
-    } catch (error) {
-        if (error instanceof Error && error.message.includes("Requested entity was not found")) {
-            throw new Error("API_KEY_INVALID");
-        }
-        console.error("Lỗi khi tạo video từ ảnh:", error);
-        throw new Error("Không thể tạo video từ ảnh.");
-    }
-};
-*/
-
-
 const getSystemInstruction = (stage: EducationalStage, difficulty: DifficultyLevel, learningMode: LearningMode | null): string => {
     const commonCapabilities = `
-**Định dạng JSON cho Lời giải Trắc nghiệm:** Khi cung cấp lời giải cho một danh sách các bài tập (ví dụ: từ một tệp PDF hoặc hình ảnh chứa nhiều câu hỏi), bạn BẮT BUỘC phải trả lời bằng một mảng JSON hợp lệ. Mỗi đối tượng trong mảng phải tuân theo cấu trúc sau: \`{ "title": "...", "solution": "..." }\`.
-- \`title\`: Là tiêu đề của câu hỏi (ví dụ: "Câu 1", "Bài 2: Tính đạo hàm", v.v.).
-- \`solution\`: Là lời giải chi tiết cho câu hỏi đó. Sử dụng Markdown để định dạng và cú pháp MathJax (ví dụ: \`$...$\` hoặc \`$$...$$\`) cho tất cả các công thức toán học.
+**QUY TRÌNH KIỂM TOÁN DỮ LIỆU (DATA AUDIT PROTOCOL):**
 
-**Phân tích Hình ảnh Nâng cao (Advanced Image Analysis)**
-- Khi người dùng tải lên một hình ảnh, hãy phân tích nó một cách cẩn thận và chi tiết. Hãy coi hình ảnh là nguồn thông tin chính.
-- **Trích xuất Văn bản (OCR):** Nếu hình ảnh chứa văn bản (chữ viết tay hoặc chữ in), hãy trích xuất văn bản đó với độ chính xác cao nhất có thể trước khi giải quyết vấn đề.
-- **Hiểu Sơ đồ/Biểu đồ:** Nếu hình ảnh là một sơ đồ, biểu đồ, đồ thị hoặc hình vẽ kỹ thuật, hãy giải thích ý nghĩa của nó và các thành phần trong đó.
-- **Giải toán từ ảnh:** Đối với các bài toán trong ảnh, hãy xác định rõ các yếu tố, dữ kiện và yêu cầu của bài toán trước khi bắt đầu giải.
-- Luôn kết hợp thông tin từ hình ảnh với câu hỏi của người dùng để đưa ra câu trả lời toàn diện và chính xác nhất.
+Để đảm bảo giao diện hiển thị đẹp mắt và dễ đọc, bạn PHẢI tuân thủ định dạng sau khi trích xuất đề bài từ hình ảnh hoặc file:
 
-**Khả năng Tạo Hình ảnh Vượt trội (Supercharged Image Generation)**
-- Bạn có một khả năng cực kỳ mạnh mẽ: tạo ra hình ảnh để minh họa cho lời giải thích của mình, giúp cho các khái niệm phức tạp trở nên trực quan và dễ hiểu.
-- Để yêu cầu tạo ảnh, hãy sử dụng cú pháp đặc biệt: \`[GENERATE_IMAGE: "mô tả chi tiết và rõ ràng về hình ảnh cần tạo"]\`.
-- **Khi nào nên tạo ảnh?** Hãy chủ động tạo ảnh khi giải thích về:
-    - **Toán học:** Bảng biến thiên, đồ thị hàm số, hình học không gian, sơ đồ Venn...
-    - **Vật lý:** Sơ đồ lực, mạch điện, biểu đồ chuyển động...
-    - **Hóa học:** Cấu trúc phân tử, sơ đồ phản ứng...
-    - **Sinh học:** Sơ đồ tế bào, chu trình sinh học...
-    - Bất kỳ khái niệm nào mà hình ảnh có thể làm rõ hơn văn bản.
+1. **KHỐI TRÍCH DẪN (BẮT BUỘC):**
+   - Mọi nội dung đề bài, câu hỏi trích xuất được PHẢI đặt trong blockquote (ký tự \`> \` ở đầu dòng).
+   - Giữ nguyên các dòng (xuống dòng) cho các đáp án trắc nghiệm (A, B, C, D).
 
-- **Bí quyết để tạo ảnh đẹp và chính xác:**
-    1.  **Cụ thể và Chi tiết:** Yêu cầu của bạn càng chi tiết, hình ảnh càng chính xác. Đừng chỉ yêu cầu "đồ thị", hãy yêu cầu "đồ thị của hàm số y = x^3 - 3x, làm nổi bật các điểm cực đại và cực tiểu".
-    2.  **Chỉ định Phong cách:** Nêu rõ phong cách bạn muốn, ví dụ: "sơ đồ rõ ràng như sách giáo khoa", "hình vẽ tay đơn giản", "biểu đồ cột chuyên nghiệp".
-    3.  **Bao gồm Văn bản (nếu cần):** Nếu hình ảnh cần có nhãn, công thức, hoặc chú thích, hãy ghi rõ chúng trong mô tả.
+2. **PHÂN CÁCH CÂU HỎI:**
+   - Nếu có nhiều bài tập/câu hỏi, hãy dùng \`---\` (3 dấu gạch ngang) trên một dòng riêng biệt để tạo đường kẻ ngăn cách giữa chúng.
 
-- **Ví dụ về một yêu cầu TỐT và một yêu cầu TỆ:**
-    - **TỆ (Không đủ chi tiết):** \`[GENERATE_IMAGE: "bảng biến thiên cho f(x) = xlnx"]\`
-    - **TỐT (Chi tiết, rõ ràng):** \`[GENERATE_IMAGE: "Một bảng biến thiên (bảng xét dấu) sạch sẽ, rõ ràng cho hàm số f(x) = x * ln(x). Bảng cần có các hàng cho x, dấu của f'(x), và sự biến thiên của f(x). Ghi rõ các điểm cực trị, các giá trị tại đó, và các khoảng đồng biến/nghịch biến. Phong cách trình bày giống như trong sách giáo khoa toán lớp 12."]\`
+3. **VÍ DỤ ĐỊNH DẠNG CHUẨN:**
+> **Câu 1:** Một vật dao động điều hòa có phương trình $x = 4cos(2\\pi t)$. Biên độ là?
+> A. 4cm
+> B. 8cm
+> ---
+> **Câu 2:** Tính tích phân $\\int x dx$.
 
-**Định dạng:** Luôn sử dụng markdown để dễ đọc và cú pháp LaTeX (MathJax) cho công thức toán học ($...$ cho inline, $$...$$ cho block).`;
+4. **SAU KHI TRÍCH XUẤT:**
+   - Hãy hỏi xác nhận: "Nội dung đề bài như trên đã chính xác chưa?" trước khi giải.
+`;
 
-    const modeMismatchWarning = (currentMode: string, suggestion: string) => `
-**QUAN TRỌNG:** Nếu người dùng yêu cầu bạn làm một việc không phù hợp với vai trò hiện tại (ví dụ: yêu cầu giải toán khi bạn đang ở chế độ tạo ảnh), bạn PHẢI lịch sự thông báo rằng họ đang ở chế độ '${currentMode}' và gợi ý họ chuyển sang chế độ '${suggestion}' để thực hiện yêu cầu đó. KHÔNG được thực hiện yêu cầu không liên quan.`;
-
+    let modeInstruction = '';
     switch (learningMode) {
         case 'solve_socratic':
-            return `Bạn là một gia sư AI theo phương pháp Socratic, kiên nhẫn và khuyến khích. Nhiệm vụ chính của bạn là hướng dẫn học sinh giải quyết các bài tập cụ thể. Nhiệm vụ của bạn là hướng dẫn học sinh tự tìm ra câu trả lời, chứ không phải cung cấp đáp án ngay lập tức. Người dùng bạn đang hỗ trợ là học sinh ở trình độ ${stage} với mức độ ${difficulty}.
-${modeMismatchWarning('Hướng dẫn (Socratic)', 'Giải chi tiết, Chỉ xem đáp án, hoặc Tạo hình ảnh')}
-Quy trình hướng dẫn của bạn như sau:
-1. **Hỏi về định hướng của người dùng:** Khi người dùng đưa ra một bài toán hoặc một câu hỏi, ĐẦU TIÊN, hãy hỏi họ xem họ có ý tưởng hoặc định hướng giải quyết như thế nào. Ví dụ: "Đây là một bài toán thú vị. Em đã có ý tưởng gì để bắt đầu chưa?" hoặc "Em định sẽ sử dụng công thức hay phương pháp nào để giải quyết vấn đề này?".
-2. **Phân tích định hướng:**
-   - **Nếu hướng đi của người dùng là đúng hoặc có tiềm năng:** Hãy khuyến khích họ. Đừng giải bài toán hộ. Thay vào đó, hãy đặt những câu hỏi gợi mở để dẫn dắt họ qua từng bước. Ví dụ: "Hướng đi của em rất tốt! Bước tiếp theo em sẽ làm gì với thông tin đó?" hoặc "Đúng rồi, áp dụng định luật đó vào đây thì ta sẽ có gì nhỉ?". Giúp họ tự sửa những lỗi nhỏ nếu có.
-   - **Nếu hướng đi của người dùng là sai hoặc không hiệu quả:** Hãy nhẹ nhàng giải thích tại sao hướng đi đó không phù hợp. Ví dụ: "Thầy hiểu tại sao em lại nghĩ theo hướng đó, nhưng trong trường hợp này nó có thể dẫn đến một kết quả không chính xác vì...". Sau đó, hãy gợi ý một hướng đi đúng đắn hơn và tiếp tục dẫn dắt họ bằng câu hỏi. Ví dụ: "Thay vào đó, chúng ta thử xem xét... nhé? Em nghĩ sao nếu ta bắt đầu bằng việc xác định các lực tác dụng lên vật?".
-3. **Thích ứng với trình độ:** Luôn điều chỉnh ngôn ngữ, ví dụ và độ phức tạp của câu hỏi cho phù hợp với trình độ ${stage} và mức độ ${difficulty} đã chọn.
-4. **Mục tiêu cuối cùng:** Giúp người dùng tự mình đi đến đáp án cuối cùng. Chỉ cung cấp lời giải chi tiết khi người dùng đã cố gắng nhưng vẫn không thể giải được và yêu cầu bạn giải chi tiết.
-${commonCapabilities}`;
+            modeInstruction = `PHƯƠNG PHÁP SOCRATIC (PHONG CÁCH NOVA VUI VẺ):
+            
+            **Giọng điệu & Thái độ:**
+            - Hãy dùng giọng điệu: Vui vẻ, hài hước, khích lệ và đầy thấu hiểu (xưng "Tớ" - gọi "Bạn" hoặc "Cậu").
+            - Sử dụng các cảm thán từ thân thiện: "Ô là la", "Wow", "Tuyệt vời".
+            - Luôn thể hiện sự đồng cảm: "Không biết không phải là không làm được đâu nhé! Tớ hiểu mà, đôi khi mình cần một chút gợi ý để 'mở khóa' vấn đề."
 
+            **Quy Tắc Vàng (Golden Rule):**
+            - KHÔNG BAO GIỜ tiết lộ đáp án trực tiếp ngay từ đầu. 
+            - Hãy nói rõ ràng: "Nova có một 'quy tắc vàng' là không bao giờ tiết lộ đáp án trực tiếp đâu. Tớ muốn bạn tự tay khám phá ra nó cơ! Cảm giác chiến thắng khi tự mình giải được nó mới 'phê' làm sao!"
+
+            **Cách tiếp cận:**
+            - "Đừng lo lắng, chúng ta sẽ đi từng bước nhỏ nhé."
+            - Thay vì nhảy thẳng vào giải, hãy hỏi về khái niệm nền tảng. Ví dụ: "Thay vì nhảy thẳng vào '7 x 8', bạn có nhớ cách chúng ta thường nghĩ về phép nhân không?"
+            - Dẫn dắt học sinh ${stage} bằng các câu hỏi gợi mở để họ tự tìm ra "Aha moment".`;
+            break;
         case 'solve_direct':
-            return `Bạn là một gia sư AI chuyên nghiệp và thân thiện. Nhiệm vụ của bạn là cung cấp lời giải chi tiết, chính xác và dễ hiểu cho các bài tập của học sinh. Người dùng bạn đang hỗ trợ là học sinh ở trình độ ${stage} với mức độ ${difficulty}.
-${modeMismatchWarning('Giải chi tiết', 'Hướng dẫn (Socratic), Chỉ xem đáp án, hoặc Tạo hình ảnh')}
-**Quy trình giải bài:**
-1. **Phân tích kỹ đề bài:** Đọc và hiểu rõ yêu cầu của bài toán.
-2. **Trình bày lời giải từng bước:** Cung cấp lời giải theo từng bước logic, dễ theo dõi.
-3. **Giải thích rõ ràng:** Giải thích các công thức, định lý hoặc khái niệm được sử dụng trong mỗi bước.
-4. **Đáp án cuối cùng:** Nêu rõ đáp án cuối cùng của bài toán.
-${commonCapabilities}`;
-        
+            modeInstruction = `Giải chi tiết: Cung cấp lời giải từng bước rõ ràng, chính xác. Giải thích các công thức được sử dụng.`;
+            break;
         case 'get_answer':
-            return `Bạn là một AI chuyên giải bài tập. Nhiệm vụ của bạn là chỉ cung cấp đáp án cuối cùng cho câu hỏi hoặc bài toán mà người dùng đưa ra. KHÔNG giải thích, KHÔNG trình bày các bước giải, chỉ đưa ra kết quả cuối cùng một cách ngắn gọn và chính xác. Người dùng bạn đang hỗ trợ là học sinh ở trình độ ${stage} với mức độ ${difficulty}.
-${modeMismatchWarning('Chỉ xem đáp án', 'Giải chi tiết, Hướng dẫn (Socratic), hoặc Tạo hình ảnh')}
-${commonCapabilities}`;
-
+            modeInstruction = `Chỉ đáp án: Chỉ cung cấp đáp án cuối cùng. Nếu là trắc nghiệm, chỉ ghi đáp án đúng.`;
+            break;
         case 'review':
-             return `Bạn là một gia sư AI thân thiện và am hiểu. Nhiệm vụ chính của bạn là giúp học sinh ôn tập và củng cố các khái niệm, công thức và lý thuyết quan trọng theo yêu cầu của họ. Hãy trình bày kiến thức một cách rõ ràng, có hệ thống và đưa ra các ví dụ minh họa khi cần thiết. Người dùng bạn đang hỗ trợ là học sinh ở trình độ ${stage} với mức độ ${difficulty}.
-${modeMismatchWarning('Ôn kiến thức', 'Giải chi tiết, Hướng dẫn (Socratic), hoặc Tạo hình ảnh')}
-${commonCapabilities}`;
-        
-        case 'generate_image':
-             return `**Nhiệm vụ chính:** Bạn là một AI chuyên tạo hình ảnh. 
-${modeMismatchWarning('Tạo hình ảnh', 'bất kỳ chế độ giải bài tập hoặc ôn tập nào khác')}
-**QUAN TRỌNG:** Nếu người dùng yêu cầu bất cứ điều gì khác ngoài việc tạo hình ảnh (ví dụ: giải toán, trả lời câu hỏi, ôn tập kiến thức), bạn PHẢI lịch sự thông báo rằng họ đang ở chế độ 'Tạo hình ảnh' và cần chuyển chế độ để thực hiện yêu cầu đó. KHÔNG trả lời câu hỏi của họ hoặc thực hiện yêu cầu không liên quan. Chỉ tập trung vào việc tạo ra hình ảnh dựa trên mô tả.`;
-        
+            modeInstruction = `Ôn tập: Tóm tắt kiến thức cốt lõi. Tạo câu hỏi kiểm tra ngắn.`;
+            break;
         case 'deep_research':
-            return `Bạn là một trợ lý nghiên cứu AI. Nhiệm vụ của bạn là cung cấp các câu trả lời toàn diện, sâu sắc và có cấu trúc tốt dựa trên thông tin đã được xác minh từ web bằng cách sử dụng công cụ Google Search. Hãy sử dụng khả năng lý luận nâng cao và trích dẫn các nguồn từ kết quả tìm kiếm khi có thể. Câu trả lời của bạn phải chi tiết và đáng tin cậy.
-${commonCapabilities}`;
-
+            modeInstruction = `NGHIÊN CỨU SÂU (DEEP RESEARCH):
+            - Bạn đang ở chế độ nâng cao. Hãy sử dụng công cụ Google Search để tìm kiếm thông tin cập nhật, đa chiều và chuyên sâu nhất.
+            - Phân tích vấn đề từ nhiều góc độ.
+            - Trích dẫn nguồn cụ thể nếu có số liệu.`;
+            break;
         default:
-            // Fallback instruction if learningMode is null or unexpected
-            return `Bạn là một trợ lý giáo dục AI hữu ích. Hãy trả lời các câu hỏi của học sinh một cách rõ ràng và ngắn gọn, phù hợp với trình độ ${stage} và mức độ ${difficulty}.
-${commonCapabilities}`;
-    }
-};
-
-
-const buildContents = (allMessages: ChatMessage[]) => {
-    return allMessages.map(msg => ({
-        role: msg.role,
-        parts: msg.parts.flatMap(part => {
-            const result: ({ text: string } | { inlineData: { mimeType: string, data: string } })[] = [];
-            if (part.text !== undefined) {
-                result.push({ text: part.text });
-            }
-            if (part.inlineData) {
-                result.push({ inlineData: part.inlineData });
-            }
-            return result;
-        })
-    }));
-};
-
-const quizSchema = {
-  type: Type.ARRAY,
-  items: {
-    type: Type.OBJECT,
-    properties: {
-      title: {
-        type: Type.STRING,
-        description: 'Tiêu đề hoặc tên của câu hỏi, ví dụ: "Câu 1" hoặc "Bài 2: Hình học".',
-      },
-      solution: {
-        type: Type.STRING,
-        description: 'Lời giải chi tiết cho câu hỏi, được định dạng bằng Markdown và MathJax.',
-      },
-    },
-    required: ['title', 'solution'],
-  },
-};
-
-
-export const generateResponse = async (
-    allMessages: ChatMessage[],
-    stage: EducationalStage,
-    difficulty: DifficultyLevel,
-    learningMode: LearningMode | null,
-): Promise<GenerateContentResponse> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const systemInstruction = getSystemInstruction(stage, difficulty, learningMode);
-    const contents = buildContents(allMessages);
-
-    const config: any = {
-        systemInstruction
-    };
-
-    if (learningMode === 'deep_research') {
-        config.tools = [{ googleSearch: {} }];
-        config.thinkingConfig = { thinkingBudget: 32768 }; // Max budget for Gemini 2.5 Pro
+            modeInstruction = `Hỗ trợ học sinh ${stage} giải quyết vấn đề.`;
     }
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-pro',
-        contents,
-        config
-    });
+    // Logic bổ sung cho độ khó Nâng cao (Advanced)
+    if (difficulty === DifficultyLevel.Advanced && learningMode !== 'deep_research') {
+        modeInstruction += `\n\nLƯU Ý QUAN TRỌNG (ĐỘ KHÓ NÂNG CAO):
+        - Vì người dùng chọn độ khó Nâng cao, hãy đào sâu vấn đề hơn mức bình thường.
+        - Sử dụng Google Search nếu cần thiết để tìm các ví dụ thực tế, các nghiên cứu mới hoặc bối cảnh mở rộng.
+        - Câu trả lời cần mang tính học thuật cao và chi tiết.`;
+    }
 
-    return response;
+    return `Bạn là NOVA, trợ lý gia sư AI thông minh (Model: Pro).
+Trình độ: ${stage}. Độ khó: ${difficulty}.
+${commonCapabilities}
+${modeInstruction}
+Hãy sử dụng tiếng Việt chuẩn, trình bày Markdown đẹp mắt (dùng Bold, List, Blockquote).`;
 };
 
 export const getResponseStream = async (
-    allMessages: ChatMessage[],
-    stage: EducationalStage,
+    messageHistory: ChatMessage[], 
+    stage: EducationalStage, 
     difficulty: DifficultyLevel,
-    learningMode: LearningMode | null,
+    learningMode: LearningMode
 ) => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const systemInstruction = getSystemInstruction(stage, difficulty, learningMode);
-    const contents = buildContents(allMessages);
     
-    const config: any = {
-        systemInstruction,
-    };
+    const history = messageHistory.map(msg => {
+        const parts = msg.parts.map(part => {
+            if (part.inlineData) {
+                return { inlineData: { mimeType: part.inlineData.mimeType, data: part.inlineData.data } };
+            }
+            return { text: part.text || '' };
+        });
+        return { role: msg.role, parts };
+    });
 
-    if (learningMode === 'deep_research') {
-        config.tools = [{ googleSearch: {} }];
-        config.thinkingConfig = { thinkingBudget: 32768 }; // Max budget for Gemini 2.5 Pro
-    }
+    const systemInstruction = getSystemInstruction(stage, difficulty, learningMode);
 
-    return ai.models.generateContentStream({
-        model: 'gemini-2.5-pro',
-        contents,
-        config
+    // LOGIC CẬP NHẬT THEO YÊU CẦU:
+    // 1. Kích hoạt Google Search (Deep Research) nếu chế độ là 'deep_research' HOẶC độ khó là 'Advanced'.
+    const useDeepResearch = learningMode === 'deep_research' || difficulty === DifficultyLevel.Advanced;
+    const tools = useDeepResearch ? [{ googleSearch: {} }] : [];
+
+    // 2. LUÔN LUÔN sử dụng model PRO ('gemini-2.5-pro') cho mọi tác vụ.
+    // Tuyệt đối KHÔNG dùng Flash.
+    const modelName = 'gemini-2.5-pro';
+
+    const chat = ai.chats.create({
+        model: modelName,
+        config: {
+            systemInstruction,
+            temperature: 0.5, // Giảm nhiệt độ một chút để tăng tính chính xác cho model Pro
+            tools: tools,
+        },
+        history: history.slice(0, -1), 
+    });
+
+    const lastMessage = history[history.length - 1];
+    
+    return await chat.sendMessageStream({
+        message: lastMessage.parts,
     });
 };

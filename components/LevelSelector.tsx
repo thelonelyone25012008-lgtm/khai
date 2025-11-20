@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { EducationalStage, DifficultyLevel, LearningMode } from '../types';
 import { ChevronDownIcon } from './Icons';
@@ -72,96 +73,107 @@ const SettingsDropdowns: React.FC<SettingsDropdownsProps> = ({
   }
 
   const baseButtonClass = "flex items-center justify-between gap-2 w-full sm:w-auto text-sm font-medium px-4 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-900";
-  const buttonColors = "bg-gray-200/80 dark:bg-gray-700/80 text-gray-800 dark:text-gray-200 hover:bg-gray-300/90 dark:hover:bg-gray-600/90";
-  const activeRing = "focus:ring-blue-500";
+  const buttonColors = "bg-gray-200/80 dark:bg-gray-700/80 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200";
+  const activeItemClass = "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300";
+  const inactiveItemClass = "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700";
 
   return (
-    <div className="flex flex-col sm:flex-row items-center gap-2">
+    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
       {/* Learning Mode Dropdown */}
       <div className="relative w-full sm:w-auto" ref={modeRef}>
         <button
-          onClick={() => { setIsModeOpen(!isModeOpen); setIsLevelOpen(false); }}
+          onClick={() => !isLoading && setIsModeOpen(!isModeOpen)}
           disabled={isLoading}
-          className={`${baseButtonClass} ${buttonColors} ${isModeOpen ? 'ring-2 ring-blue-500' : activeRing}`}
-          style={{minWidth: '200px'}}
+          className={`${baseButtonClass} ${buttonColors} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          aria-haspopup="true"
+          aria-expanded={isModeOpen}
         >
-          <span>{learningModeDisplayMap[learningMode]}</span>
-          <ChevronDownIcon className={`w-5 h-5 transition-transform ${isModeOpen ? 'rotate-180' : ''}`} />
+          <span className="truncate">{learningModeDisplayMap[learningMode]}</span>
+          <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${isModeOpen ? 'transform rotate-180' : ''}`} />
         </button>
+
         {isModeOpen && (
-          <div className="absolute z-20 mt-1 w-full sm:w-56 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 py-1">
-            {Object.entries(learningModeOptions).map(([key, value]) => (
-              <button
-                key={key}
-                onClick={() => handleModeSelect(key as LearningMode)}
-                className={`block w-full text-left px-4 py-2 text-sm ${
-                  learningMode === key
-                    ? 'bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white'
-                    : 'text-gray-700 dark:text-gray-300'
-                } hover:bg-blue-500 hover:text-white`}
-              >
-                {value}
-              </button>
-            ))}
+          <div className="absolute z-50 mt-2 w-full sm:w-56 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none animate-in fade-in zoom-in duration-200 origin-top-left">
+            <div className="py-1" role="menu" aria-orientation="vertical">
+              {Object.entries(learningModeOptions).map(([modeKey, label]) => (
+                <button
+                  key={modeKey}
+                  onClick={() => handleModeSelect(modeKey as LearningMode)}
+                  className={`block w-full text-left px-4 py-2 text-sm transition-colors ${learningMode === modeKey ? activeItemClass : inactiveItemClass}`}
+                  role="menuitem"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Level and Difficulty Dropdown (conditionally rendered) */}
-      {learningMode !== 'generate_image' && learningMode !== 'deep_research' && (
-        <div className="relative w-full sm:w-auto" ref={levelRef}>
-          <button
-            onClick={() => { setIsLevelOpen(!isLevelOpen); setIsModeOpen(false); }}
-            disabled={isLoading}
-            className={`${baseButtonClass} ${buttonColors} ${isLevelOpen ? 'ring-2 ring-blue-500' : activeRing}`}
-            style={{minWidth: '200px'}}
-          >
-            <span>{selectedStage}</span>
-            <ChevronDownIcon className={`w-5 h-5 transition-transform ${isLevelOpen ? 'rotate-180' : ''}`} />
-          </button>
-          {isLevelOpen && (
-            <div className="absolute z-20 mt-1 w-full sm:w-64 right-0 bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-4 space-y-4">
-              <div>
-                <label htmlFor="stage-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Trình độ
-                </label>
-                <select
-                  id="stage-select"
-                  value={selectedStage}
-                  onChange={(e) => setSelectedStage(e.target.value as EducationalStage)}
-                  className="block w-full text-sm rounded-md border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {Object.values(EducationalStage).map(stage => (
-                    <option key={stage} value={stage}>{stage}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label htmlFor="difficulty-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Mức độ
-                </label>
-                <select
-                  id="difficulty-select"
-                  value={selectedDifficulty}
-                  onChange={(e) => {
-                    const newDifficulty = e.target.value as DifficultyLevel;
-                    setSelectedDifficulty(newDifficulty);
-                    if (newDifficulty === DifficultyLevel.Advanced) {
-                        setLearningMode('deep_research');
-                        setIsLevelOpen(false);
-                    }
-                  }}
-                  className="block w-full text-sm rounded-md border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {Object.values(DifficultyLevel).map(difficulty => (
-                    <option key={difficulty} value={difficulty}>{difficulty}</option>
-                  ))}
-                </select>
-              </div>
+      {/* Educational Level Dropdown (Combined Stage & Difficulty) */}
+       <div className="relative w-full sm:w-auto" ref={levelRef}>
+        <button
+          onClick={() => !isLoading && setIsLevelOpen(!isLevelOpen)}
+          disabled={isLoading}
+          className={`${baseButtonClass} ${buttonColors} ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          aria-haspopup="true"
+          aria-expanded={isLevelOpen}
+        >
+            <span className="truncate">
+                {selectedStage === EducationalStage.Elementary && 'Tiểu học'}
+                {selectedStage === EducationalStage.MiddleSchool && 'THCS'}
+                {selectedStage === EducationalStage.HighSchool && 'THPT'}
+                {' - '}
+                {selectedDifficulty}
+            </span>
+           <ChevronDownIcon className={`w-4 h-4 transition-transform duration-200 ${isLevelOpen ? 'transform rotate-180' : ''}`} />
+        </button>
+
+        {isLevelOpen && (
+          <div className="absolute z-50 mt-2 w-full sm:w-64 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none animate-in fade-in zoom-in duration-200 origin-top-left">
+             {/* Difficulty Selection */}
+            <div className="p-2 border-b border-gray-200 dark:border-gray-700">
+                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 px-2 mb-2 uppercase tracking-wider">Độ khó</p>
+                 <div className="flex gap-2">
+                    {Object.values(DifficultyLevel).map((level) => (
+                        <button
+                            key={level}
+                            onClick={() => {
+                                setSelectedDifficulty(level);
+                                setIsLevelOpen(false); // Close on selection for better UX on mobile
+                            }}
+                            className={`flex-1 text-xs font-medium py-1.5 px-2 rounded-md transition-colors border ${
+                                selectedDifficulty === level
+                                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                                : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 border-transparent hover:bg-gray-100 dark:hover:bg-gray-700'
+                            }`}
+                        >
+                            {level}
+                        </button>
+                    ))}
+                 </div>
             </div>
-          )}
-        </div>
-      )}
+
+             {/* Stage Selection */}
+            <div className="py-1" role="menu" aria-orientation="vertical">
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 px-4 py-2 uppercase tracking-wider">Trình độ</p>
+              {Object.values(EducationalStage).map((stage) => (
+                <button
+                  key={stage}
+                  onClick={() => {
+                      setSelectedStage(stage);
+                      setIsLevelOpen(false);
+                  }}
+                  className={`block w-full text-left px-4 py-2 text-sm transition-colors ${selectedStage === stage ? activeItemClass : inactiveItemClass}`}
+                  role="menuitem"
+                >
+                  {stage}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
