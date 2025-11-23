@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect } from 'react';
 import { ChatMessage, Part, UploadedFile } from '../types';
-import { NovaIcon, DocumentTextIcon } from './Icons';
+import { NovaIcon, DocumentTextIcon, RefreshIcon } from './Icons';
 import QuizResult from './QuizResult';
 
 // This function parses a custom markdown dialect that also supports LaTeX via MathJax.
@@ -127,7 +127,14 @@ const parseMarkdown = (text: string) => {
     return { __html: html };
 };
 
-const ChatMessageContent: React.FC<{ part: Part, isStreaming?: boolean, onViewPdf: (base64: string) => void }> = ({ part, isStreaming, onViewPdf }) => {
+const ChatMessageContent: React.FC<{ 
+    part: Part, 
+    isStreaming?: boolean, 
+    onViewPdf: (base64: string) => void,
+    imagePrompt?: string,
+    onRegenerateImage?: (prompt: string) => void,
+    isLoading: boolean
+}> = ({ part, isStreaming, onViewPdf, imagePrompt, onRegenerateImage, isLoading }) => {
     const contentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -142,11 +149,23 @@ const ChatMessageContent: React.FC<{ part: Part, isStreaming?: boolean, onViewPd
     if (part.inlineData) {
         if (part.inlineData.mimeType.startsWith('image/')) {
             return (
-                <img
-                    src={`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`}
-                    alt="Uploaded content"
-                    className="max-w-xs rounded-lg mt-2 shadow-md border border-gray-200 dark:border-gray-700"
-                />
+                <div className="relative group/image max-w-xs mt-2">
+                    <img
+                        src={`data:${part.inlineData.mimeType};base64,${part.inlineData.data}`}
+                        alt="Uploaded content"
+                        className="rounded-lg shadow-md border border-gray-200 dark:border-gray-700"
+                    />
+                    {imagePrompt && onRegenerateImage && (
+                         <button
+                            onClick={() => onRegenerateImage(imagePrompt)}
+                            disabled={isLoading}
+                            className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full backdrop-blur-sm opacity-0 group-hover/image:opacity-100 transition-opacity duration-200 shadow-lg"
+                            title="Tạo lại hình ảnh này"
+                        >
+                            <RefreshIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                    )}
+                </div>
             );
         }
         if (part.inlineData.mimeType === 'application/pdf') {
@@ -196,6 +215,7 @@ interface ChatMessageComponentProps {
     originalUserInput: string;
     originalFiles: UploadedFile[];
   }) => void;
+  onRegenerateImage?: (prompt: string) => void;
   isLoading: boolean;
 }
 
@@ -204,6 +224,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = ({
     onViewPdf,
     onPdfDownload,
     onPdfConfirmAndContinue,
+    onRegenerateImage,
     isLoading
 }) => {
   const isUser = message.role === 'user';
@@ -238,7 +259,15 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = ({
         )}
       <div className={`max-w-3xl p-5 shadow-sm font-sans ${bubbleClasses}`}>
         {message.parts.map((part, index) => (
-          <ChatMessageContent key={index} part={part} isStreaming={message.isStreaming} onViewPdf={onViewPdf} />
+          <ChatMessageContent 
+            key={index} 
+            part={part} 
+            isStreaming={message.isStreaming} 
+            onViewPdf={onViewPdf}
+            imagePrompt={message.imagePrompt}
+            onRegenerateImage={onRegenerateImage}
+            isLoading={isLoading}
+          />
         ))}
         {message.sources && message.sources.length > 0 && !message.isStreaming && (
             <div className="mt-4 pt-3 border-t border-gray-200/30 dark:border-gray-600/30">

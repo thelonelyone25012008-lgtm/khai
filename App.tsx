@@ -179,7 +179,6 @@ const App: React.FC = () => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
     
-// FIX: Iterate directly over the FileList. `Array.from()` was causing issues with type inference in some environments, leading to `file` being typed as `unknown`.
     for (const file of files) {
         const fileId = `${file.name}-${file.size}-${Math.random()}`;
         const placeholderFile: UploadedFile = { id: fileId, name: file.name, type: file.type, base64Data: '', parts: [], progress: 0 };
@@ -238,11 +237,8 @@ const App: React.FC = () => {
             finalResponse = chunk;
         }
 
-        // FIX: Add a guard clause to handle cases where the final aggregated response is not available.
         if (!finalResponse) {
             console.warn("Final aggregated response was not available after streaming.");
-            // We have the full text from the stream, so we can still display it.
-            // But we cannot extract sources or structured data.
             const finalMessage = { 
                 id: modelMessageId, 
                 role: 'model' as const, 
@@ -251,7 +247,7 @@ const App: React.FC = () => {
             };
             setMessages(prev => prev.map(msg => msg.id === modelMessageId ? finalMessage : msg));
             setIsLoading(false);
-            return; // Exit the function early
+            return; 
         }
 
         const groundingChunks = finalResponse.candidates?.[0]?.groundingMetadata?.groundingChunks;
@@ -291,7 +287,11 @@ const App: React.FC = () => {
             setMessages(prev => [...prev, placeholderMessage]);
             try {
                 const imageBase64 = await generateImage(prompt);
-                const imageResponse: ChatMessage = { role: 'model', parts: [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } }] };
+                const imageResponse: ChatMessage = { 
+                    role: 'model', 
+                    parts: [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } }],
+                    imagePrompt: prompt // Save prompt for regeneration
+                };
                 setMessages(prev => prev.map(msg => msg.id === placeholderId ? imageResponse : msg));
             } catch (imgErr) {
                 console.error(imgErr);
@@ -311,6 +311,41 @@ const App: React.FC = () => {
     }
   }, [educationalStage, difficultyLevel, learningMode]);
 
+  const handleRegenerateImage = useCallback(async (prompt: string) => {
+    if (isLoading) return;
+    setIsLoading(true);
+    const modelMessageId = `model-regen-${Date.now()}`;
+    
+    // Add a temporary status message
+    setMessages(prev => [...prev, { 
+        id: modelMessageId, 
+        role: 'model', 
+        parts: [{ text: `Đang tạo lại hình ảnh: "${prompt}"...` }] 
+    }]);
+
+    try {
+        const imageBase64 = await generateImage(prompt);
+        const imageResponse: ChatMessage = {
+            id: modelMessageId,
+            role: 'model',
+            parts: [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } }],
+            imagePrompt: prompt // Keep the prompt so it can be regenerated again
+        };
+        setMessages(prev => prev.map(msg => msg.id === modelMessageId ? imageResponse : msg));
+    } catch (err) {
+        console.error("Regeneration failed", err);
+        const errorResponse: ChatMessage = {
+            id: modelMessageId,
+            role: 'model',
+            parts: [{ text: `Rất tiếc, không thể tạo lại hình ảnh cho: "${prompt}"` }]
+        };
+        setMessages(prev => prev.map(msg => msg.id === modelMessageId ? errorResponse : msg));
+        setError('Không thể tạo lại hình ảnh.');
+    } finally {
+        setIsLoading(false);
+    }
+  }, [isLoading]);
+
 
   const handleSendMessage = useCallback(async () => {
     if (isLoading) return;
@@ -319,7 +354,6 @@ const App: React.FC = () => {
         const readyFiles = uploadedFiles.filter(f => f.progress === 100);
         if (!input.trim() && readyFiles.length === 0) return;
 
-        // 1. Create user message and add to state
         const userParts: Part[] = [...readyFiles.flatMap(f => f.parts)];
         if (input.trim()) {
             userParts.push({ text: input });
@@ -327,7 +361,6 @@ const App: React.FC = () => {
         const userMessage: ChatMessage = { role: 'user', parts: userParts };
         setMessages(prev => [...prev, userMessage]);
         
-        // 2. Clear inputs and set loading state
         const currentInputText = input;
         const currentFiles = readyFiles;
         setInput('');
@@ -335,12 +368,10 @@ const App: React.FC = () => {
         setIsLoading(true);
         setError(null);
         
-        // --- NEW TWO-STEP IMAGE GENERATION LOGIC ---
         const modelMessageId = `model-img-${Date.now()}`;
         let finalPrompt = currentInputText.trim();
         
         try {
-            // STEP 1: Extract text from files if they exist
             if (currentFiles.length > 0) {
                 const placeholderMessage: ChatMessage = {
                     id: modelMessageId, role: 'model', parts: [{ text: `Đang phân tích tệp để trích xuất yêu cầu...` }]
@@ -349,8 +380,6 @@ const App: React.FC = () => {
                 
                 const fileParts = currentFiles.flatMap(f => f.parts);
                 const extractedText = await extractTextFromFile(fileParts);
-                
-                // Combine extracted text with user's typed text
                 finalPrompt = (finalPrompt + ' ' + extractedText).trim();
             }
 
@@ -358,11 +387,9 @@ const App: React.FC = () => {
                 throw new Error("Không tìm thấy yêu cầu nào trong tệp hoặc văn bản bạn nhập.");
             }
 
-            // STEP 2: Generate image using the high-quality model
             const placeholderMessage: ChatMessage = {
                 id: modelMessageId, role: 'model', parts: [{ text: `Đã hiểu yêu cầu! Đang tạo hình ảnh: "${finalPrompt}"...` }]
             };
-            // Use map to replace the previous placeholder if it exists, otherwise add a new one.
             setMessages(prev => {
                 const placeholderExists = prev.some(m => m.id === modelMessageId);
                 if (placeholderExists) {
@@ -373,7 +400,10 @@ const App: React.FC = () => {
 
             const imageBase64 = await generateImage(finalPrompt);
             const imageResponse: ChatMessage = {
-                id: modelMessageId, role: 'model', parts: [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } }]
+                id: modelMessageId, 
+                role: 'model', 
+                parts: [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } }],
+                imagePrompt: finalPrompt // Save prompt for regeneration
             };
             setMessages(prev => prev.map(msg => msg.id === modelMessageId ? imageResponse : msg));
 
@@ -557,6 +587,7 @@ const App: React.FC = () => {
                         onViewPdf={setPdfToView}
                         onPdfDownload={handlePdfDownload}
                         onPdfConfirmAndContinue={handlePdfConfirmAndContinue}
+                        onRegenerateImage={handleRegenerateImage}
                         isLoading={isLoading}
                     />
                 ))}

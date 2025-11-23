@@ -44,6 +44,8 @@ export interface ChatMessage {
   quizResult?: QuizResultItem[];
   // New property to hold grounding sources from Google Search
   sources?: { uri: string; title: string }[];
+  // New property to store the prompt used if this message contains a generated image
+  imagePrompt?: string;
 }
 
 export interface UploadedFile {
