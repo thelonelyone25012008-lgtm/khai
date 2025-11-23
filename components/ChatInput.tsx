@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect } from 'react';
 import { PaperClipIcon, SendIcon, XCircleIcon, CameraIcon, DocumentTextIcon } from './Icons';
 import Spinner from './Spinner';
@@ -168,7 +169,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={learningMode === 'generate_image' ? "Mô tả ảnh, hoặc tải tệp lên để AI trích xuất yêu cầu..." : "Nhập câu hỏi hoặc mô tả tệp của bạn..."}
+                  placeholder="Nhập câu hỏi hoặc mô tả tệp của bạn..."
                   className={`flex-1 bg-transparent border-none focus:ring-0 resize-none outline-none ${themeColors.textPrimary} placeholder-${themeColors.textSecondary} py-2.5 min-h-[44px] max-h-52`}
                   rows={1}
                   disabled={isLoading}

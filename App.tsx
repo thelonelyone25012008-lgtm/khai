@@ -5,7 +5,7 @@ import ChatMessageComponent from './components/ChatMessage';
 import Header from './components/Header';
 import { NovaIcon, BrandmarkIcon } from './components/Icons';
 import { EducationalStage, DifficultyLevel, ChatMessage, UploadedFile, Part, Theme, LearningMode, QuizResultItem } from './types';
-import { getResponseStream, generateImage, extractTextFromFile } from './services/geminiService';
+import { getResponseStream } from './services/geminiService';
 import { createPdfFromImages } from './services/pdfService';
 import CameraCapture from './components/CameraCapture';
 import PdfViewer from './components/PdfViewer';
@@ -84,7 +84,7 @@ const App: React.FC = () => {
   };
 
   const handlePaste = useCallback(async (event: ClipboardEvent) => {
-    if (isLoading || isCameraOpen || learningMode === 'generate_image') return;
+    if (isLoading || isCameraOpen) return;
     const items = event.clipboardData?.items;
     if (!items) return;
     const imageFile = Array.from(items).find(item => item.kind === 'file' && item.type.startsWith('image/'))?.getAsFile();
@@ -104,7 +104,7 @@ const App: React.FC = () => {
                 setUploadedFiles(prev => prev.map(f => f.id === fileId ? { ...f, progress: -1 } : f ));
             });
     }
-  }, [isLoading, isCameraOpen, learningMode]);
+  }, [isLoading, isCameraOpen]);
     
   // Bắt đầu một phiên trò chuyện mới, thường được gọi sau khi đăng nhập hoặc thay đổi chế độ
   const startNewChatSession = useCallback((mode: LearningMode) => {
@@ -118,9 +118,7 @@ const App: React.FC = () => {
     }
 
     let initialText = 'Xin chào! Tôi là NOVA, trợ lý học tập của bạn. Hãy đặt câu hỏi cho tôi nhé.';
-    if (mode === 'generate_image') {
-        initialText = 'Xin chào! Hãy mô tả hình ảnh bạn muốn tôi tạo ra, hoặc tải lên một tệp để tôi trích xuất yêu cầu.';
-    } else if (mode === 'solve_socratic') {
+    if (mode === 'solve_socratic') {
         initialText = `Chào mừng! Tôi sẽ hướng dẫn bạn giải bài tập. Hãy đưa ra vấn đề và ý tưởng của bạn nhé.`
     } else if (mode === 'deep_research') {
         initialText = 'Chế độ Nghiên cứu sâu đã được kích hoạt. Tôi sẽ sử dụng Google Search để cung cấp câu trả lời chi tiết và đáng tin cậy. Bạn muốn tìm hiểu về điều gì?';
@@ -267,38 +265,11 @@ const App: React.FC = () => {
                  throw new Error("JSON response does not match QuizResult schema.");
             }
         } catch (jsonError) {
-            const imageGenRegex = /\[GENERATE_IMAGE:\s*"([^"]+)"\]/g;
-            const cleanedText = fullResponseText.replace(imageGenRegex, '').trim();
+            const cleanedText = fullResponseText.trim();
             finalMessage = { id: modelMessageId, role: 'model', parts: [{ text: cleanedText }], isStreaming: false, sources };
         }
         
         setMessages(prev => prev.map(msg => msg.id === modelMessageId ? finalMessage : msg));
-
-        const imageGenRegex = /\[GENERATE_IMAGE:\s*"([^"]+)"\]/g;
-        const imagePrompts: string[] = [];
-        let match;
-        while ((match = imageGenRegex.exec(fullResponseText)) !== null) {
-            imagePrompts.push(match[1]);
-        }
-        
-        await Promise.all(imagePrompts.map(async (prompt) => {
-            const placeholderId = `img-placeholder-${Date.now()}-${Math.random()}`;
-            const placeholderMessage: ChatMessage = { role: 'model', parts: [{ text: `Đang tạo hình ảnh: "${prompt}"...` }], id: placeholderId };
-            setMessages(prev => [...prev, placeholderMessage]);
-            try {
-                const imageBase64 = await generateImage(prompt);
-                const imageResponse: ChatMessage = { 
-                    role: 'model', 
-                    parts: [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } }],
-                    imagePrompt: prompt // Save prompt for regeneration
-                };
-                setMessages(prev => prev.map(msg => msg.id === placeholderId ? imageResponse : msg));
-            } catch (imgErr) {
-                console.error(imgErr);
-                const errorResponse: ChatMessage = { role: 'model', parts: [{ text: `Rất tiếc, không thể tạo hình ảnh cho: "${prompt}"` }] };
-                setMessages(prev => prev.map(msg => msg.id === placeholderId ? errorResponse : msg));
-            }
-        }));
 
     } catch (err) {
       const errorMessage = 'Đã xảy ra lỗi khi nhận phản hồi. Vui lòng kiểm tra lại API key và thử lại.';
@@ -311,121 +282,9 @@ const App: React.FC = () => {
     }
   }, [educationalStage, difficultyLevel, learningMode]);
 
-  const handleRegenerateImage = useCallback(async (prompt: string) => {
-    if (isLoading) return;
-    setIsLoading(true);
-    const modelMessageId = `model-regen-${Date.now()}`;
-    
-    // Add a temporary status message
-    setMessages(prev => [...prev, { 
-        id: modelMessageId, 
-        role: 'model', 
-        parts: [{ text: `Đang tạo lại hình ảnh: "${prompt}"...` }] 
-    }]);
-
-    try {
-        const imageBase64 = await generateImage(prompt);
-        const imageResponse: ChatMessage = {
-            id: modelMessageId,
-            role: 'model',
-            parts: [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } }],
-            imagePrompt: prompt // Keep the prompt so it can be regenerated again
-        };
-        setMessages(prev => prev.map(msg => msg.id === modelMessageId ? imageResponse : msg));
-    } catch (err) {
-        console.error("Regeneration failed", err);
-        const errorResponse: ChatMessage = {
-            id: modelMessageId,
-            role: 'model',
-            parts: [{ text: `Rất tiếc, không thể tạo lại hình ảnh cho: "${prompt}"` }]
-        };
-        setMessages(prev => prev.map(msg => msg.id === modelMessageId ? errorResponse : msg));
-        setError('Không thể tạo lại hình ảnh.');
-    } finally {
-        setIsLoading(false);
-    }
-  }, [isLoading]);
-
 
   const handleSendMessage = useCallback(async () => {
     if (isLoading) return;
-
-    if (learningMode === 'generate_image') {
-        const readyFiles = uploadedFiles.filter(f => f.progress === 100);
-        if (!input.trim() && readyFiles.length === 0) return;
-
-        const userParts: Part[] = [...readyFiles.flatMap(f => f.parts)];
-        if (input.trim()) {
-            userParts.push({ text: input });
-        }
-        const userMessage: ChatMessage = { role: 'user', parts: userParts };
-        setMessages(prev => [...prev, userMessage]);
-        
-        const currentInputText = input;
-        const currentFiles = readyFiles;
-        setInput('');
-        setUploadedFiles([]);
-        setIsLoading(true);
-        setError(null);
-        
-        const modelMessageId = `model-img-${Date.now()}`;
-        let finalPrompt = currentInputText.trim();
-        
-        try {
-            if (currentFiles.length > 0) {
-                const placeholderMessage: ChatMessage = {
-                    id: modelMessageId, role: 'model', parts: [{ text: `Đang phân tích tệp để trích xuất yêu cầu...` }]
-                };
-                setMessages(prev => [...prev, placeholderMessage]);
-                
-                const fileParts = currentFiles.flatMap(f => f.parts);
-                const extractedText = await extractTextFromFile(fileParts);
-                finalPrompt = (finalPrompt + ' ' + extractedText).trim();
-            }
-
-            if (!finalPrompt) {
-                throw new Error("Không tìm thấy yêu cầu nào trong tệp hoặc văn bản bạn nhập.");
-            }
-
-            const placeholderMessage: ChatMessage = {
-                id: modelMessageId, role: 'model', parts: [{ text: `Đã hiểu yêu cầu! Đang tạo hình ảnh: "${finalPrompt}"...` }]
-            };
-            setMessages(prev => {
-                const placeholderExists = prev.some(m => m.id === modelMessageId);
-                if (placeholderExists) {
-                    return prev.map(m => m.id === modelMessageId ? placeholderMessage : m);
-                }
-                return [...prev, placeholderMessage];
-            });
-
-            const imageBase64 = await generateImage(finalPrompt);
-            const imageResponse: ChatMessage = {
-                id: modelMessageId, 
-                role: 'model', 
-                parts: [{ inlineData: { mimeType: 'image/jpeg', data: imageBase64 } }],
-                imagePrompt: finalPrompt // Save prompt for regeneration
-            };
-            setMessages(prev => prev.map(msg => msg.id === modelMessageId ? imageResponse : msg));
-
-        } catch (err) {
-            console.error(err);
-            const errorMessage = (err as Error).message || `Rất tiếc, không thể tạo hình ảnh. Vui lòng thử lại.`;
-            setError(errorMessage);
-            const errorResponse: ChatMessage = {
-                id: modelMessageId, role: 'model', parts: [{ text: errorMessage }]
-            };
-            setMessages(prev => {
-                const placeholderExists = prev.some(m => m.id === modelMessageId);
-                if (placeholderExists) {
-                    return prev.map(m => m.id === modelMessageId ? errorResponse : m);
-                }
-                return [...prev, errorResponse];
-            });
-        } finally {
-            setIsLoading(false);
-        }
-        return;
-    }
 
     const readyFiles = uploadedFiles.filter(f => f.progress === 100);
     if (!input.trim() && readyFiles.length === 0) return;
@@ -477,7 +336,7 @@ const App: React.FC = () => {
     setUploadedFiles([]);
     
     await processAndStreamResponse(currentMessages);
-  }, [input, uploadedFiles, messages, isLoading, processAndStreamResponse, learningMode]);
+  }, [input, uploadedFiles, messages, isLoading, processAndStreamResponse]);
 
   const handlePdfDownload = useCallback((base64: string) => {
     downloadFileFromBase64(base64, `NOVA_synthesis_${Date.now()}.pdf`, 'application/pdf');
@@ -521,7 +380,7 @@ const App: React.FC = () => {
   }, [theme]);
   
   useEffect(() => {
-      if (currentUser && messages.length > 0 && appState === 'CHAT' && !isLoading && learningMode !== 'generate_image') {
+      if (currentUser && messages.length > 0 && appState === 'CHAT' && !isLoading) {
           const historyToSave = messages.filter(m => m.specialActions?.type !== 'pdfConfirmation');
           if (historyToSave.length > 0) {
             saveChatHistory(currentUser, historyToSave).catch(err => {
@@ -529,7 +388,7 @@ const App: React.FC = () => {
             });
           }
       }
-  }, [messages, currentUser, appState, isLoading, learningMode]);
+  }, [messages, currentUser, appState, isLoading]);
   
   useEffect(() => {
     window.addEventListener('paste', handlePaste);
@@ -587,7 +446,6 @@ const App: React.FC = () => {
                         onViewPdf={setPdfToView}
                         onPdfDownload={handlePdfDownload}
                         onPdfConfirmAndContinue={handlePdfConfirmAndContinue}
-                        onRegenerateImage={handleRegenerateImage}
                         isLoading={isLoading}
                     />
                 ))}

@@ -10,7 +10,7 @@ export enum DifficultyLevel {
   Advanced = 'Nâng cao',
 }
 
-export type LearningMode = 'solve_socratic' | 'solve_direct' | 'get_answer' | 'review' | 'generate_image' | 'deep_research';
+export type LearningMode = 'solve_socratic' | 'solve_direct' | 'get_answer' | 'review' | 'deep_research';
 
 export type Theme = 'light' | 'dark' | 'system';
 
@@ -44,8 +44,6 @@ export interface ChatMessage {
   quizResult?: QuizResultItem[];
   // New property to hold grounding sources from Google Search
   sources?: { uri: string; title: string }[];
-  // New property to store the prompt used if this message contains a generated image
-  imagePrompt?: string;
 }
 
 export interface UploadedFile {

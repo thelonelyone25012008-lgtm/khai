@@ -131,10 +131,8 @@ const ChatMessageContent: React.FC<{
     part: Part, 
     isStreaming?: boolean, 
     onViewPdf: (base64: string) => void,
-    imagePrompt?: string,
-    onRegenerateImage?: (prompt: string) => void,
     isLoading: boolean
-}> = ({ part, isStreaming, onViewPdf, imagePrompt, onRegenerateImage, isLoading }) => {
+}> = ({ part, isStreaming, onViewPdf, isLoading }) => {
     const contentRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -155,16 +153,6 @@ const ChatMessageContent: React.FC<{
                         alt="Uploaded content"
                         className="rounded-lg shadow-md border border-gray-200 dark:border-gray-700"
                     />
-                    {imagePrompt && onRegenerateImage && (
-                         <button
-                            onClick={() => onRegenerateImage(imagePrompt)}
-                            disabled={isLoading}
-                            className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white p-2 rounded-full backdrop-blur-sm opacity-0 group-hover/image:opacity-100 transition-opacity duration-200 shadow-lg"
-                            title="Tạo lại hình ảnh này"
-                        >
-                            <RefreshIcon className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-                        </button>
-                    )}
                 </div>
             );
         }
@@ -215,7 +203,6 @@ interface ChatMessageComponentProps {
     originalUserInput: string;
     originalFiles: UploadedFile[];
   }) => void;
-  onRegenerateImage?: (prompt: string) => void;
   isLoading: boolean;
 }
 
@@ -224,7 +211,6 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = ({
     onViewPdf,
     onPdfDownload,
     onPdfConfirmAndContinue,
-    onRegenerateImage,
     isLoading
 }) => {
   const isUser = message.role === 'user';
@@ -264,8 +250,6 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = ({
             part={part} 
             isStreaming={message.isStreaming} 
             onViewPdf={onViewPdf}
-            imagePrompt={message.imagePrompt}
-            onRegenerateImage={onRegenerateImage}
             isLoading={isLoading}
           />
         ))}

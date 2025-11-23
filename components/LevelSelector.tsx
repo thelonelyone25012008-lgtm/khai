@@ -55,7 +55,6 @@ const SettingsDropdowns: React.FC<SettingsDropdownsProps> = ({
     'solve_direct': 'Giải chi tiết',
     'get_answer': 'Chỉ xem đáp án',
     'review': 'Ôn kiến thức',
-    'generate_image': 'Tạo hình ảnh',
     'deep_research': 'Nghiên cứu sâu',
   };
 

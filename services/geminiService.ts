@@ -6,63 +6,6 @@ if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable not set");
 }
 
-/**
- * Extracts a concise text prompt from uploaded files using a powerful multimodal model.
- */
-export const extractTextFromFile = async (parts: Part[]): Promise<string> => {
-    if (parts.length === 0) {
-        return "";
-    }
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const systemInstruction = `Your only job is to analyze the provided file(s) and extract or create a concise, effective prompt for an image generation AI.
-- If the file contains explicit text that is a prompt, extract that text exactly.
-- If the file is an image without a clear text prompt, generate a short, descriptive prompt based on the image's main content.
-- The output should be ONLY the prompt text, with no extra explanations.`;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: { parts },
-            config: { systemInstruction },
-        });
-        return response.text.trim();
-    } catch (error) {
-        console.error("Error extracting text from file:", error);
-        throw new Error("Failed to analyze the uploaded file.");
-    }
-};
-
-/**
- * Generates an image based on a textual prompt using the high-quality Imagen model.
- */
-export const generateImage = async (prompt: string): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    if (!prompt || prompt.trim().length === 0) {
-        throw new Error("Image generation prompt cannot be empty.");
-    }
-    
-    try {
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt: prompt,
-            config: {
-              numberOfImages: 1,
-              outputMimeType: 'image/jpeg',
-              aspectRatio: '1:1',
-            },
-        });
-
-        if (response.generatedImages && response.generatedImages.length > 0) {
-            return response.generatedImages[0].image.imageBytes;
-        } else {
-            throw new Error("Image generation failed, no images were returned.");
-        }
-    } catch (error) {
-        console.error("Error generating image with Imagen:", error);
-        throw new Error("Failed to generate image.");
-    }
-};
-
 const getSystemInstruction = (stage: EducationalStage, difficulty: DifficultyLevel, learningMode: LearningMode | null): string => {
     const commonCapabilities = `
 **QUY TRÌNH KIỂM TOÁN DỮ LIỆU (DATA AUDIT PROTOCOL):**
@@ -85,12 +28,6 @@ const getSystemInstruction = (stage: EducationalStage, difficulty: DifficultyLev
 
 4. **SAU KHI TRÍCH XUẤT:**
    - Hãy hỏi xác nhận: "Nội dung đề bài như trên đã chính xác chưa?" trước khi giải.
-
-**KHẢ NĂNG TẠO HÌNH ẢNH MINH HỌA (VISUALIZATIONS):**
-- Bạn có khả năng tạo hình ảnh để minh họa cho bài giảng (ví dụ: sơ đồ tế bào, hình học không gian, nhân vật lịch sử).
-- Khi người dùng yêu cầu hoặc khi bạn thấy cần thiết phải có hình ảnh minh họa, hãy thêm dòng lệnh sau vào CUỐI câu trả lời của bạn:
-  \`[GENERATE_IMAGE: "mô tả chi tiết hình ảnh bằng tiếng Anh"]\`
-- Ví dụ: \`[GENERATE_IMAGE: "detailed diagram of a plant cell structure, educational, white background, high quality"]\`
 `;
 
     // --- LOGIC PHÂN HÓA TRÌNH ĐỘ (STAGE SPECIFIC INSTRUCTION) ---
