@@ -73,7 +73,7 @@ const SettingsDropdowns: React.FC<SettingsDropdownsProps> = ({
 
   const baseButtonClass = "flex items-center justify-between gap-2 w-full sm:w-auto text-sm font-medium px-4 py-2 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-100 dark:focus:ring-offset-gray-900";
   const buttonColors = "bg-gray-200/80 dark:bg-gray-700/80 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200";
-  const activeItemClass = "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300";
+  const activeItemClass = "bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300";
   const inactiveItemClass = "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700";
 
   return (
@@ -143,7 +143,7 @@ const SettingsDropdowns: React.FC<SettingsDropdownsProps> = ({
                             }}
                             className={`flex-1 text-xs font-medium py-1.5 px-2 rounded-md transition-colors border ${
                                 selectedDifficulty === level
-                                ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+                                ? 'bg-primary-100 dark:bg-primary-900/40 text-primary-700 dark:text-primary-300 border-primary-200 dark:border-primary-800'
                                 : 'bg-gray-50 dark:bg-gray-700/50 text-gray-600 dark:text-gray-300 border-transparent hover:bg-gray-100 dark:hover:bg-gray-700'
                             }`}
                         >

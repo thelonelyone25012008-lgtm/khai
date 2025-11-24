@@ -77,7 +77,7 @@ const parseMarkdown = (text: string) => {
             replacementContent = `<pre class="bg-gray-200 dark:bg-gray-900 rounded-md p-3 my-2 overflow-x-auto"><code>${code}</code></pre>`;
         } else if (value.startsWith('`')) {
             const code = value.slice(1, -1);
-            replacementContent = `<code class="bg-gray-200 dark:bg-gray-900 rounded px-1 py-0.5 text-blue-600 dark:text-blue-400 font-medium">${code}</code>`;
+            replacementContent = `<code class="bg-gray-200 dark:bg-gray-900 rounded px-1 py-0.5 text-primary-600 dark:text-primary-400 font-medium">${code}</code>`;
         } else {
             replacementContent = value;
         }

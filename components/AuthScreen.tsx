@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { NovaIcon, BrandmarkIcon } from './Icons';
 import { loginUser, registerUser } from '../services/dbService';
@@ -57,7 +58,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onContinueAsGuest }) =
       <div className="w-full max-w-md text-center flex flex-col items-center">
         <div className="mb-8 flex flex-col items-center">
             <div className="flex flex-row items-center justify-center gap-0">
-                <NovaIcon className="w-64 h-64 text-indigo-500 dark:text-indigo-400" />
+                <NovaIcon className="w-64 h-64 text-primary-500 dark:text-primary-400" />
                 <BrandmarkIcon className="h-32 text-gray-800 dark:text-gray-200" />
             </div>
             <p className="text-lg text-gray-600 dark:text-gray-300 mt-8">Trợ lý học tập AI của bạn</p>
@@ -75,7 +76,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onContinueAsGuest }) =
                 if (error) setError('');
               }}
               placeholder="Tên người dùng"
-              className="w-full px-4 py-3 text-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 text-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               aria-describedby="auth-error"
               autoComplete="username"
             />
@@ -91,7 +92,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onContinueAsGuest }) =
                 if (error) setError('');
               }}
               placeholder="Mật khẩu"
-              className="w-full px-4 py-3 text-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 text-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               aria-describedby="auth-error"
               autoComplete="current-password"
             />
@@ -100,7 +101,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onContinueAsGuest }) =
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full px-4 py-3 font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors disabled:bg-blue-400 flex items-center justify-center"
+            className="w-full px-4 py-3 font-bold text-white bg-primary-600 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors disabled:bg-primary-400 flex items-center justify-center"
           >
             {isLoading ? <Spinner /> : (authMode === 'LOGIN' ? 'Đăng nhập' : 'Đăng ký')}
           </button>
@@ -111,7 +112,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onContinueAsGuest }) =
             <button 
                 type="button"
                 onClick={toggleAuthMode}
-                className="font-semibold text-blue-600 dark:text-blue-400 hover:underline focus:outline-none bg-transparent border-none p-0 cursor-pointer"
+                className="font-semibold text-primary-600 dark:text-primary-400 hover:underline focus:outline-none bg-transparent border-none p-0 cursor-pointer"
             >
                 {authMode === 'LOGIN' ? 'Đăng ký ngay' : 'Đăng nhập'}
             </button>
@@ -126,7 +127,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin, onContinueAsGuest }) =
         <button
           type="button"
           onClick={onContinueAsGuest}
-          className="w-full px-4 py-3 font-semibold text-blue-600 dark:text-blue-400 bg-transparent rounded-lg hover:bg-blue-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors"
+          className="w-full px-4 py-3 font-semibold text-primary-600 dark:text-primary-400 bg-transparent rounded-lg hover:bg-primary-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors"
         >
           {'Tiếp tục với tư cách khách'}
         </button>
