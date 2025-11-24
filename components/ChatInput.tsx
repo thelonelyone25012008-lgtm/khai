@@ -60,8 +60,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
       border: 'border-slate-300 dark:border-gray-700',
       textPrimary: 'text-slate-900 dark:text-slate-100',
       textSecondary: 'text-slate-500 dark:text-slate-400',
-      primary: 'bg-blue-600',
-      primaryHover: 'hover:bg-blue-700',
+      primary: 'bg-primary-600',
+      primaryHover: 'hover:bg-primary-700',
       primaryText: 'text-white',
   };
 
@@ -149,7 +149,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     <button
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isLoading}
-                        className={`p-2 ${themeColors.textSecondary} hover:text-blue-600 disabled:opacity-50`}
+                        className={`p-2 ${themeColors.textSecondary} hover:text-primary-600 disabled:opacity-50`}
                         aria-label="Đính kèm tệp"
                     >
                         <PaperClipIcon className="w-6 h-6" />
@@ -157,7 +157,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                     <button
                         onClick={onOpenCamera}
                         disabled={isLoading}
-                        className={`p-2 ${themeColors.textSecondary} hover:text-blue-600 disabled:opacity-50`}
+                        className={`p-2 ${themeColors.textSecondary} hover:text-primary-600 disabled:opacity-50`}
                         aria-label="Chụp ảnh"
                     >
                         <CameraIcon className="w-6 h-6" />
@@ -177,7 +177,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
               <button
                   onClick={handleSendMessage}
                   disabled={isSendDisabled}
-                  className={`self-end ${themeColors.primary} ${themeColors.primaryHover} disabled:bg-blue-600/50 disabled:cursor-not-allowed ${themeColors.primaryText} rounded-lg w-10 h-10 flex items-center justify-center shrink-0 transition-colors`}
+                  className={`self-end ${themeColors.primary} ${themeColors.primaryHover} disabled:bg-primary-600/50 disabled:cursor-not-allowed ${themeColors.primaryText} rounded-lg w-10 h-10 flex items-center justify-center shrink-0 transition-colors`}
                   title="Gửi tin nhắn"
               >
                   {isLoading ? <Spinner /> : <SendIcon className="w-5 h-5" />}

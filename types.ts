@@ -12,7 +12,8 @@ export enum DifficultyLevel {
 
 export type LearningMode = 'solve_socratic' | 'solve_direct' | 'get_answer' | 'review' | 'deep_research';
 
-export type Theme = 'light' | 'dark' | 'system';
+// Removed Theme type as it is no longer used explicitly
+export type AccentColor = string;
 
 export interface Part {
   text?: string;

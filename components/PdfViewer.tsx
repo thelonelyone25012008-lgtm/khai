@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { XCircleIcon } from './Icons';
 import Spinner from './Spinner';
@@ -83,18 +84,18 @@ const PdfViewer: React.FC<PdfViewerProps> = ({ base64Data, onClose }) => {
     return (
         <div className="fixed inset-0 bg-black/80 z-50 flex flex-col items-center justify-center backdrop-blur-sm p-2 sm:p-4" onClick={onClose}>
             {/* Toolbar */}
-            <div className="w-full max-w-5xl bg-card-secondary text-text-primary p-2 rounded-t-lg flex items-center justify-between shadow-lg" onClick={e => e.stopPropagation()}>
+            <div className="w-full max-w-5xl bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 p-2 rounded-t-lg flex items-center justify-between shadow-lg" onClick={e => e.stopPropagation()}>
                 <div className="flex items-center gap-2 sm:gap-4">
-                    <button onClick={onPrevPage} disabled={pageNum <= 1} className="px-3 py-1 rounded disabled:opacity-50 hover:bg-card transition-colors">Trước</button>
+                    <button onClick={onPrevPage} disabled={pageNum <= 1} className="px-3 py-1 rounded disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Trước</button>
                     <span className="text-sm sm:text-base">Trang {pageNum} / {numPages || '?'}</span>
-                    <button onClick={onNextPage} disabled={pageNum >= numPages} className="px-3 py-1 rounded disabled:opacity-50 hover:bg-card transition-colors">Sau</button>
+                    <button onClick={onNextPage} disabled={pageNum >= numPages} className="px-3 py-1 rounded disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Sau</button>
                 </div>
                 <div className="hidden sm:flex items-center gap-4">
-                    <button onClick={onZoomOut} disabled={scale <= 0.5} className="px-3 py-1 rounded disabled:opacity-50 hover:bg-card transition-colors">Thu nhỏ</button>
+                    <button onClick={onZoomOut} disabled={scale <= 0.5} className="px-3 py-1 rounded disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Thu nhỏ</button>
                     <span>{Math.round(scale * 100)}%</span>
-                    <button onClick={onZoomIn} disabled={scale >= 3} className="px-3 py-1 rounded disabled:opacity-50 hover:bg-card transition-colors">Phóng to</button>
+                    <button onClick={onZoomIn} disabled={scale >= 3} className="px-3 py-1 rounded disabled:opacity-50 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">Phóng to</button>
                 </div>
-                <button onClick={onClose} className="p-2 rounded-full hover:bg-card transition-colors">
+                <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                     <XCircleIcon className="w-6 h-6" />
                 </button>
             </div>

@@ -51,7 +51,7 @@ const parseMarkdown = (text: string) => {
                      const content = line.replace(/^>\s?/, '');
                      // Handle internal HRs within quotes (e.g., separating questions)
                      if (content.trim().match(/^(\*{3,}|-{3,})$/)) {
-                         return '<hr class="my-4 border-t border-indigo-200 dark:border-indigo-700 border-dashed" />';
+                         return '<hr class="my-4 border-t border-primary-200 dark:border-primary-700 border-dashed" />';
                      }
                      return processInlineMarkdown(content);
                  });
@@ -60,7 +60,7 @@ const parseMarkdown = (text: string) => {
                  const contentHtml = processedLines.join('<br/>');
                  
                  return `
-                    <div class="my-4 pl-4 border-l-4 border-indigo-500 bg-indigo-50 dark:bg-gray-800/50 dark:border-indigo-400 rounded-r-lg p-4 shadow-sm">
+                    <div class="my-4 pl-4 border-l-4 border-primary-500 bg-primary-50 dark:bg-gray-800/50 dark:border-primary-400 rounded-r-lg p-4 shadow-sm">
                         <div class="text-gray-800 dark:text-gray-200 text-sm leading-relaxed font-medium font-sans">
                             ${contentHtml}
                         </div>
@@ -162,7 +162,7 @@ const ChatMessageContent: React.FC<{
                     onClick={() => onViewPdf(part.inlineData.data)}
                     className="flex items-center gap-3 bg-gray-50 dark:bg-gray-800 p-3 my-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer text-left w-full max-w-xs transition-colors group"
                 >
-                    <DocumentTextIcon className="w-8 h-8 flex-shrink-0 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                    <DocumentTextIcon className="w-8 h-8 flex-shrink-0 text-gray-400 group-hover:text-primary-500 transition-colors" />
                     <div>
                         <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
                             Tệp PDF đính kèm
@@ -220,7 +220,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = ({
     return (
       <div className={`flex ${containerClasses} mb-6`}>
         {!isUser && (
-          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center mr-3 mt-1 shadow-sm">
+          <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center mr-3 mt-1 shadow-sm">
             <NovaIcon className="w-5 h-5 text-white" />
           </div>
         )}
@@ -232,14 +232,14 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = ({
   }
 
   const bubbleClasses = isUser
-    ? 'bg-blue-600 text-white self-end rounded-2xl rounded-tr-sm'
+    ? 'bg-primary-600 text-white self-end rounded-2xl rounded-tr-sm'
     : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 self-start rounded-2xl rounded-tl-sm border border-gray-100 dark:border-gray-700/50';
   const isPdfConfirmation = message.specialActions?.type === 'pdfConfirmation';
 
   return (
     <div className={`flex ${containerClasses} mb-6 group`}>
         {!isUser && (
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center mr-3 mt-1 shadow-sm">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center mr-3 mt-1 shadow-sm">
                 <NovaIcon className="w-5 h-5 text-white" />
             </div>
         )}
@@ -259,12 +259,12 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = ({
                 <ul className="space-y-1.5">
                     {message.sources.map((source, index) => (
                         <li key={index} className="flex items-start text-xs">
-                           <span className="mr-2 text-blue-400">&#8226;</span>
+                           <span className="mr-2 text-primary-400">&#8226;</span>
                            <a 
                                 href={source.uri} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 hover:underline break-all transition-colors"
+                                className="text-primary-500 hover:text-primary-600 dark:text-primary-400 dark:hover:text-primary-300 hover:underline break-all transition-colors"
                                 title={source.title}
                             >
                                 {source.title || new URL(source.uri).hostname}
@@ -286,7 +286,7 @@ const ChatMessageComponent: React.FC<ChatMessageComponentProps> = ({
             <button
               onClick={() => onPdfConfirmAndContinue(message.specialActions)}
               disabled={isLoading}
-              className="px-4 py-2 text-sm font-semibold bg-white text-blue-600 hover:bg-blue-50 rounded-lg transition-all w-full sm:w-auto shadow-sm"
+              className="px-4 py-2 text-sm font-semibold bg-white text-primary-600 hover:bg-primary-50 rounded-lg transition-all w-full sm:w-auto shadow-sm"
             >
               Tiếp tục với PDF này
             </button>
